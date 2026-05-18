@@ -58,6 +58,7 @@
         if (!parsed.locations) parsed.locations = [];
         if (!parsed.timeline)  parsed.timeline  = [];
         if (!parsed.codex)     parsed.codex     = [];
+        parsed.codex = parsed.codex.map(e => ({ type: 'lore', pinned: false, ...e }));
         return parsed;
       }
     } catch (_) {}
@@ -205,7 +206,7 @@
 
       // ── Codex ────────────────────────────────────────────────
       case 'CODEX_ADD': {
-        const entry = { id: 'codex-' + Date.now(), title: a.title || 'Untitled Entry', body: '', tags: [], createdAt: new Date().toISOString() };
+        const entry = { id: 'codex-' + Date.now(), title: a.title || 'Untitled Entry', body: '', tags: [], type: a.entryType || 'lore', pinned: false, createdAt: new Date().toISOString() };
         return { ...s, codex: [entry, ...s.codex] };
       }
       case 'CODEX_REMOVE':

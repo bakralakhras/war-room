@@ -420,24 +420,265 @@ function TimelinePage({ timeline, sessions }) {
 // CODEX
 // ════════════════════════════════════════════════════════════════
 
+// ── Codex helpers ──────────────────────────────────────────────
+const CODEX_TYPES = [
+  { id: 'lore',      label: 'Lore',      hue: 80  },
+  { id: 'character', label: 'Character', hue: 300 },
+  { id: 'location',  label: 'Location',  hue: 155 },
+  { id: 'session',   label: 'Session',   hue: 220 },
+  { id: 'rumor',     label: 'Rumor',     hue: 30  },
+  { id: 'note',      label: 'Note',      hue: 260 },
+];
+
+const MENTION_KIND_LABEL = {
+  npc: 'NPC', faction: 'Faction', location: 'Location',
+  secret: 'Secret', rumor: 'Rumor',
+};
+
+function codexTypeStyle(typeId) {
+  const t = CODEX_TYPES.find(t => t.id === typeId) || CODEX_TYPES[0];
+  return {
+    color: `oklch(0.70 0.090 ${t.hue})`,
+    background: `oklch(0.18 0.035 ${t.hue})`,
+    border: `1px solid oklch(0.32 0.055 ${t.hue})`,
+  };
+}
+
+function getAllEntities(state) {
+  const out = [];
+  (state.npcs || []).forEach(n => out.push({ id: n.id, name: n.name, kind: 'npc', sub: n.title || '' }));
+  (state.factions || []).forEach(f => out.push({ id: f.id, name: f.name, kind: 'faction', sub: '' }));
+  (state.locations || []).forEach(l => out.push({ id: l.id, name: l.name || l.label, kind: 'location', sub: l.kind || '' }));
+  (state.secrets || []).forEach(s => out.push({ id: s.id, name: s.title, kind: 'secret', sub: s.weight || '' }));
+  (state.rumors || []).forEach(r => out.push({ id: r.id, name: (r.text || '').slice(0, 50) + (r.text && r.text.length > 50 ? '…' : ''), kind: 'rumor', sub: r.source || '' }));
+  return out;
+}
+
+function parseMentions(body) {
+  const re = /@\[([^\]]+)\]\(([^)]+)\)/g;
+  const links = [];
+  let m;
+  while ((m = re.exec(body || '')) !== null) links.push({ name: m[1], id: m[2] });
+  return links;
+}
+
+function CodexListItem({ entry, active, onClick }) {
+  const ts = codexTypeStyle(entry.type || 'lore');
+  const typeLabel = (CODEX_TYPES.find(t => t.id === entry.type) || CODEX_TYPES[0]).label;
+  const excerpt = (entry.body || '').replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').slice(0, 90);
+  const links = parseMentions(entry.body);
+
+  return (
+    <div className={`codex-item${active ? ' active' : ''}`} onClick={onClick}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        {entry.pinned && <span style={{ color: 'oklch(0.72 0.090 80)', fontSize: 12, lineHeight: 1 }}>★</span>}
+        <span className="codex-type-badge" style={ts}>{typeLabel}</span>
+        <div className="codex-item-title" style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+      </div>
+      {excerpt && <div className="codex-item-excerpt">{excerpt}{excerpt.length >= 90 ? '…' : ''}</div>}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+        {(entry.tags || []).slice(0, 3).map(t => <span key={t} className="codex-tag">{t}</span>)}
+        {links.length > 0 && <span className="codex-tag" style={{ color: 'oklch(0.60 0.050 220)', borderColor: 'oklch(0.28 0.030 220)' }}>⟁ {links.length}</span>}
+      </div>
+    </div>
+  );
+}
+
+function CodexEditor({ entry, patch, allEntities, onDelete }) {
+  const [body, setBody]           = _useState(entry.body || '');
+  const [tagDraft, setTagDraft]   = _useState('');
+  const [mentionState, setMention]= _useState(null); // { query, atStart, cursorEnd }
+  const [dropCursor, setDropCursor] = _useState(0);
+  const taRef   = _useRef(null);
+  const saveRef = _useRef(null);
+
+  _useEffect(() => {
+    setBody(entry.body || '');
+    setMention(null);
+  }, [entry.id]);
+
+  function debounceSave(val) {
+    clearTimeout(saveRef.current);
+    saveRef.current = setTimeout(() => patch('body', val), 350);
+  }
+
+  function onBodyChange(e) {
+    const val = e.target.value;
+    setBody(val);
+    debounceSave(val);
+
+    const pos = e.target.selectionStart;
+    const before = val.slice(0, pos);
+    const m = before.match(/@([^@\[\n\r]*)$/);
+    if (m) {
+      setMention({ query: m[1], atStart: pos - m[0].length, cursorEnd: pos });
+      setDropCursor(0);
+    } else {
+      setMention(null);
+    }
+  }
+
+  const filteredEntities = mentionState
+    ? allEntities.filter(e => !mentionState.query || e.name.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 8)
+    : [];
+
+  function selectMention(entity) {
+    const ta = taRef.current;
+    if (!ta || !mentionState) return;
+    const val = ta.value;
+    const link = `@[${entity.name}](${entity.id})`;
+    const newVal = val.slice(0, mentionState.atStart) + link + val.slice(mentionState.cursorEnd);
+    setBody(newVal);
+    debounceSave(newVal);
+    setMention(null);
+    setTimeout(() => {
+      ta.focus();
+      const p = mentionState.atStart + link.length;
+      ta.setSelectionRange(p, p);
+    }, 0);
+  }
+
+  function onBodyKeyDown(e) {
+    if (!mentionState || !filteredEntities.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setDropCursor(c => Math.min(c + 1, filteredEntities.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setDropCursor(c => Math.max(c - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); selectMention(filteredEntities[dropCursor]); }
+    else if (e.key === 'Escape') setMention(null);
+  }
+
+  function addTag(e) {
+    if ((e.key === 'Enter' || e.key === ',') && tagDraft.trim()) {
+      e.preventDefault();
+      const tag = tagDraft.trim().replace(/,$/, '').toLowerCase();
+      if (!(entry.tags || []).includes(tag)) patch('tags', [...(entry.tags || []), tag]);
+      setTagDraft('');
+    }
+  }
+
+  function removeTag(tag) {
+    patch('tags', (entry.tags || []).filter(t => t !== tag));
+  }
+
+  const links = parseMentions(body);
+  const wordCount = body.trim().split(/\s+/).filter(Boolean).length;
+  const charCount = body.length;
+
+  return (
+    <div className="codex-editor">
+      <div className="codex-editor-header">
+        <div className="codex-title-row">
+          <input
+            className="codex-editor-title"
+            value={entry.title}
+            onChange={e => patch('title', e.target.value)}
+            placeholder="Entry title…"
+          />
+          <button
+            className="codex-pin-btn"
+            onClick={() => patch('pinned', !entry.pinned)}
+            title={entry.pinned ? 'Unpin' : 'Pin to top'}
+            style={{ color: entry.pinned ? 'oklch(0.72 0.090 80)' : 'var(--demo-muted)' }}
+          >★</button>
+        </div>
+
+        <div className="codex-type-row">
+          {CODEX_TYPES.map(t => {
+            const active = (entry.type || 'lore') === t.id;
+            return (
+              <button
+                key={t.id}
+                className="codex-type-btn"
+                style={active ? codexTypeStyle(t.id) : {}}
+                onClick={() => patch('type', t.id)}
+              >{t.label}</button>
+            );
+          })}
+        </div>
+
+        <div className="codex-tag-row">
+          {(entry.tags || []).map(tag => (
+            <button key={tag} className="dossier-tag" onClick={() => removeTag(tag)} title="Remove tag">
+              {tag} ×
+            </button>
+          ))}
+          <input
+            className="dossier-tag-add"
+            value={tagDraft}
+            onChange={e => setTagDraft(e.target.value)}
+            onKeyDown={addTag}
+            placeholder="+ tag"
+          />
+        </div>
+      </div>
+
+      <div className="codex-body-wrap">
+        <textarea
+          ref={taRef}
+          className="codex-editor-body"
+          value={body}
+          onChange={onBodyChange}
+          onKeyDown={onBodyKeyDown}
+          placeholder={"Write freely — lore, history, DM notes…\n\nType @ to link a character, location, faction, secret, or rumor."}
+        />
+        {mentionState && filteredEntities.length > 0 && (
+          <div className="codex-mention-dropdown">
+            {filteredEntities.map((e, i) => (
+              <div
+                key={e.id}
+                className={`codex-mention-item${i === dropCursor ? ' active' : ''}`}
+                onMouseDown={ev => { ev.preventDefault(); selectMention(e); }}
+                onMouseEnter={() => setDropCursor(i)}
+              >
+                <span className="codex-mention-kind">{MENTION_KIND_LABEL[e.kind] || e.kind}</span>
+                <span className="codex-mention-name">{e.name}</span>
+                {e.sub && <span className="codex-mention-sub">{e.sub}</span>}
+              </div>
+            ))}
+            <div className="codex-mention-hint">↑↓ · Enter to link · Esc to dismiss</div>
+          </div>
+        )}
+      </div>
+
+      {links.length > 0 && (
+        <div className="codex-links-panel">
+          <div className="codex-links-label">Linked</div>
+          <div className="codex-links-chips">
+            {links.map((l, i) => {
+              const entity = allEntities.find(e => e.id === l.id);
+              return (
+                <span key={i} className="codex-entity-chip">
+                  {entity && <span className="codex-entity-kind">{MENTION_KIND_LABEL[entity.kind] || entity.kind}</span>}
+                  {entity ? entity.name : l.name}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="codex-editor-footer">
+        <span className="codex-word-count">{wordCount}w · {charCount}c</span>
+        <button className="btn-danger" onClick={onDelete}>Delete entry</button>
+      </div>
+    </div>
+  );
+}
+
 function CodexPage({ codex }) {
   const [selectedId, setSelectedId] = _useState(codex[0]?.id || null);
   const [search, setSearch]         = _useState('');
-  const [tagFilter, setTagFilter]   = _useState('');
+  const [typeFilter, setTypeFilter] = _useState('');
+  const [sortBy, setSortBy]         = _useState('newest');
 
-  const selected = codex.find(e => e.id === selectedId) || codex[0] || null;
-
-  // Collect all unique tags
-  const allTags = [...new Set(codex.flatMap(e => e.tags || []))].sort();
-
-  const visible = codex.filter(e => {
-    const matchSearch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.body || '').toLowerCase().includes(search.toLowerCase());
-    const matchTag    = !tagFilter || (e.tags || []).includes(tagFilter);
-    return matchSearch && matchTag;
-  });
+  const allEntities = getAllEntities(window.Store.get());
+  const selected = codex.find(e => e.id === selectedId) || null;
 
   function addEntry() {
-    window.Store.dispatch({ type: 'CODEX_ADD', title: 'New Entry' });
+    window.Store.dispatch({ type: 'CODEX_ADD', title: 'Untitled Entry', entryType: typeFilter || 'lore' });
+    setTimeout(() => {
+      const s = window.Store.get();
+      if (s.codex[0]) setSelectedId(s.codex[0].id);
+    }, 50);
   }
 
   function patch(field, value) {
@@ -445,17 +686,34 @@ function CodexPage({ codex }) {
     window.Store.dispatch({ type: 'CODEX_SET_FIELD', id: selected.id, field, value });
   }
 
-  function parseTags(str) {
-    return str.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  function deleteEntry() {
+    if (!selected) return;
+    if (window.confirm('Delete "' + selected.title + '"?')) {
+      window.Store.dispatch({ type: 'CODEX_REMOVE', id: selected.id });
+      const remaining = codex.filter(e => e.id !== selected.id);
+      setSelectedId(remaining[0]?.id || null);
+    }
   }
 
-  const wordCount = selected ? (selected.body || '').trim().split(/\s+/).filter(Boolean).length : 0;
+  const visible = codex.filter(e => {
+    const matchSearch = !search ||
+      e.title.toLowerCase().includes(search.toLowerCase()) ||
+      (e.body || '').toLowerCase().includes(search.toLowerCase());
+    const matchType = !typeFilter || e.type === typeFilter;
+    return matchSearch && matchType;
+  }).sort((a, b) => {
+    if (sortBy === 'newest') return (b.createdAt || '').localeCompare(a.createdAt || '');
+    return a.title.localeCompare(b.title);
+  });
+
+  const pinned   = visible.filter(e => e.pinned);
+  const unpinned = visible.filter(e => !e.pinned);
 
   return (
     <div className="main-inner">
       <div className="page-header">
         <div className="page-header-text">
-          <div className="page-eyebrow">Campaign knowledge base</div>
+          <div className="page-eyebrow">DM's Notebook</div>
           <div className="page-title">Codex</div>
         </div>
         <button className="btn-primary" onClick={addEntry}>+ New Entry</button>
@@ -464,43 +722,48 @@ function CodexPage({ codex }) {
       {codex.length === 0 ? (
         <div className="vault-empty">
           <h3>The codex is empty</h3>
-          <p>Write lore, NPC backgrounds, faction histories, location descriptions — anything you want to remember.</p>
+          <p>Write lore, NPC backgrounds, faction histories — anything you need to remember. Link characters, locations, and secrets with @mentions.</p>
           <button className="btn-primary" style={{ marginTop: 8 }} onClick={addEntry}>Write first entry</button>
         </div>
       ) : (
         <div className="codex-layout">
-          <div>
-            {/* Search */}
-            <div style={{ marginBottom: 8 }}>
-              <input
-                style={{ width: '100%', background: 'oklch(0.17 0.010 260)', border: '1px solid var(--demo-border)', borderRadius: 5, padding: '7px 10px', color: 'var(--demo-text)', fontFamily: 'inherit', fontSize: 12, outline: 'none' }}
-                placeholder="Search entries…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+          <div className="codex-sidebar">
+            <input
+              className="codex-search"
+              placeholder="Search entries…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+
+            <div className="codex-type-filter-row">
+              <button className={`codex-filter-btn${!typeFilter ? ' active' : ''}`} onClick={() => setTypeFilter('')}>All</button>
+              {CODEX_TYPES.map(t => (
+                <button
+                  key={t.id}
+                  className={`codex-filter-btn${typeFilter === t.id ? ' active' : ''}`}
+                  onClick={() => setTypeFilter(typeFilter === t.id ? '' : t.id)}
+                >{t.label}</button>
+              ))}
             </div>
-            {allTags.length > 0 && (
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-                <button className={`vault-tab${!tagFilter ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setTagFilter('')}>All</button>
-                {allTags.map(t => (
-                  <button key={t} className={`vault-tab${tagFilter === t ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setTagFilter(t)}>{t}</button>
+
+            <div className="codex-sort-row">
+              <button className={`codex-sort-btn${sortBy === 'newest' ? ' active' : ''}`} onClick={() => setSortBy('newest')}>Newest</button>
+              <button className={`codex-sort-btn${sortBy === 'az' ? ' active' : ''}`} onClick={() => setSortBy('az')}>A–Z</button>
+            </div>
+
+            {pinned.length > 0 && (
+              <>
+                <div className="codex-section-divider">Pinned</div>
+                {pinned.map(e => (
+                  <CodexListItem key={e.id} entry={e} active={selected?.id === e.id} onClick={() => setSelectedId(e.id)} />
                 ))}
-              </div>
+                {unpinned.length > 0 && <div className="codex-section-divider">All entries</div>}
+              </>
             )}
+
             <div className="codex-list">
-              {visible.map(e => (
-                <div
-                  key={e.id}
-                  className={`codex-item${selected?.id === e.id ? ' active' : ''}`}
-                  onClick={() => setSelectedId(e.id)}
-                >
-                  <div className="codex-item-title">{e.title}</div>
-                  {(e.tags || []).length > 0 && (
-                    <div className="codex-item-tags">
-                      {e.tags.map(t => <span key={t} className="codex-tag">{t}</span>)}
-                    </div>
-                  )}
-                </div>
+              {unpinned.map(e => (
+                <CodexListItem key={e.id} entry={e} active={selected?.id === e.id} onClick={() => setSelectedId(e.id)} />
               ))}
               {visible.length === 0 && (
                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--demo-muted)', fontSize: 12 }}>No entries match.</div>
@@ -508,39 +771,10 @@ function CodexPage({ codex }) {
             </div>
           </div>
 
-          {selected && (
-            <div className="codex-editor">
-              <div className="codex-editor-header">
-                <input
-                  className="codex-editor-title"
-                  value={selected.title}
-                  onChange={e => patch('title', e.target.value)}
-                  placeholder="Entry title…"
-                />
-                <input
-                  className="codex-tag-input"
-                  value={(selected.tags || []).join(', ')}
-                  onChange={e => patch('tags', parseTags(e.target.value))}
-                  placeholder="Tags: history, npc, location…  (comma-separated)"
-                />
-              </div>
-              <textarea
-                className="codex-editor-body"
-                value={selected.body || ''}
-                onChange={e => patch('body', e.target.value)}
-                placeholder="Write freely. Lore, backstory, DM notes, rumour chains, anything..."
-              />
-              <div className="codex-editor-footer">
-                <span className="codex-word-count">{wordCount} word{wordCount !== 1 ? 's' : ''}</span>
-                <button className="btn-danger" onClick={() => {
-                  if (window.confirm('Delete "' + selected.title + '"?')) {
-                    window.Store.dispatch({ type: 'CODEX_REMOVE', id: selected.id });
-                    setSelectedId(codex[0]?.id || null);
-                  }
-                }}>Delete</button>
-              </div>
-            </div>
-          )}
+          {selected
+            ? <CodexEditor key={selected.id} entry={selected} patch={patch} allEntities={allEntities} onDelete={deleteEntry} />
+            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--demo-muted)', fontSize: 13 }}>Select an entry to edit</div>
+          }
         </div>
       )}
     </div>
