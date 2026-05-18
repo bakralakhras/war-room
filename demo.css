@@ -2429,14 +2429,44 @@ body {
 .codex-view-toggle:hover  { color: var(--demo-dim); border-color: oklch(0.35 0.020 260); }
 .codex-view-toggle.active { background: oklch(0.20 0.025 80); color: oklch(0.68 0.070 80); border-color: oklch(0.38 0.055 80); }
 
-.codex-body-wrap { position: relative; }
+.codex-body-wrap {
+  position: relative;
+  min-height: 320px;
+  display: flex; flex-direction: column;
+}
 
+/* Mirror: sits behind textarea, renders the highlighted version */
+.codex-body-mirror {
+  position: absolute; inset: 0;
+  padding: 16px 18px; box-sizing: border-box;
+  font-family: var(--f-display, 'Cormorant Garamond', serif);
+  font-size: 14px; line-height: 1.75;
+  white-space: pre-wrap; word-wrap: break-word; word-break: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--demo-dim);
+  tab-size: 4;
+}
+
+/* Highlighted mention inside the mirror */
+.body-mention {
+  border-radius: 4px;
+  padding: 0 4px 1px;
+  font-style: normal;
+  /* background/color/shadow set inline per-kind */
+}
+
+/* Textarea: transparent text so mirror shows through, visible caret */
 .codex-editor-body {
-  width: 100%; min-height: 320px; box-sizing: border-box;
+  position: relative; z-index: 1;
+  width: 100%; min-height: 320px; flex: 1; box-sizing: border-box;
   background: transparent; border: none; outline: none;
-  color: var(--demo-dim); font-family: var(--f-display, 'Cormorant Garamond', serif);
+  color: transparent;
+  caret-color: oklch(0.78 0.100 85);
+  font-family: var(--f-display, 'Cormorant Garamond', serif);
   font-size: 14px; line-height: 1.75; resize: none;
   padding: 16px 18px; display: block;
+  tab-size: 4;
 }
 .codex-editor-body::placeholder { color: oklch(0.35 0.010 260); font-style: italic; }
 

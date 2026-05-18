@@ -532,14 +532,40 @@ function CodexListItem({ entry, active, onClick }) {
   );
 }
 
+// Build mirror-div content: transparent wrapper around @[...] syntax so
+// only the display name is visible as a highlight, cursor stays aligned.
+function renderBodyHighlighted(text, allEntities) {
+  const re = /@\[([^\]]+)\]\(([^)]+)\)/g;
+  const nodes = [];
+  let last = 0, m, key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(<span key={key++}>{text.slice(last, m.index)}</span>);
+    const entity = allEntities.find(e => e.id === m[2]);
+    const meta = MENTION_KIND_META[entity?.kind || 'npc'];
+    nodes.push(<span key={key++} style={{ color: 'transparent' }}>@[</span>);
+    nodes.push(
+      <mark key={key++} className="body-mention" style={{
+        background: `oklch(0.21 0.040 ${meta.hue} / 0.55)`,
+        color: `oklch(0.80 0.090 ${meta.hue})`,
+        boxShadow: `inset 0 0 0 1px oklch(0.40 0.065 ${meta.hue} / 0.45)`,
+      }}>{m[1]}</mark>
+    );
+    nodes.push(<span key={key++} style={{ color: 'transparent' }}>{`](${m[2]})`}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(<span key={key++}>{text.slice(last)}</span>);
+  return nodes;
+}
+
 function CodexEditor({ entry, patch, allEntities, onDelete, onNav }) {
   const [body, setBody]             = _useState(entry.body || '');
   const [tagDraft, setTagDraft]     = _useState('');
   const [mentionState, setMention]  = _useState(null);
   const [dropCursor, setDropCursor] = _useState(0);
   const [preview, setPreview]       = _useState(false);
-  const taRef   = _useRef(null);
-  const saveRef = _useRef(null);
+  const taRef     = _useRef(null);
+  const mirrorRef = _useRef(null);
+  const saveRef   = _useRef(null);
 
   _useEffect(() => {
     setBody(entry.body || '');
@@ -662,24 +688,34 @@ function CodexEditor({ entry, patch, allEntities, onDelete, onNav }) {
         </div>
       </div>
 
-      {/* Body: preview or edit */}
+      {/* Body */}
       {preview ? (
         <div className="codex-preview" onClick={() => setPreview(false)}>
           {body.trim()
             ? renderBodyWithMentions(body, allEntities, onNav)
-            : <span className="codex-preview-empty">Nothing written yet. Click to start writing.</span>
+            : <span className="codex-preview-empty">Nothing written yet — click to start writing.</span>
           }
         </div>
       ) : (
         <div className="codex-body-wrap">
+          {/* Mirror: same dimensions as textarea, visible highlighted text */}
+          <div
+            ref={mirrorRef}
+            className="codex-body-mirror"
+            aria-hidden="true"
+          >{renderBodyHighlighted(body, allEntities)}</div>
+
+          {/* Textarea: transparent text, visible caret, captures input */}
           <textarea
             ref={taRef}
             className="codex-editor-body"
             value={body}
             onChange={onBodyChange}
             onKeyDown={onBodyKeyDown}
+            onScroll={e => { if (mirrorRef.current) mirrorRef.current.scrollTop = e.target.scrollTop; }}
             placeholder={"Write freely — lore, history, DM notes…\n\nType @ to link a player, character, location, faction, secret, or rumor."}
           />
+
           {mentionState && filteredEntities.length > 0 && (
             <div className="codex-mention-dropdown">
               <div className="codex-mention-header">
