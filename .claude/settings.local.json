@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:api.anthropic.com)",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\BakerAlakhras\\\\.claude\\\\projects\\\\c--Users-BakerAlakhras-Projects-War-Room\\\\design_bundle\" -Recurse -Force | ForEach-Object { $_.FullName })"
-    ]
-  }
-}
