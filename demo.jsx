@@ -852,6 +852,323 @@ function FactionsPage({ factions }) {
   );
 }
 
+// ── Vault / Secrets ────────────────────────────────────────────
+const SECRET_STATUSES = ['sealed', 'cracked', 'revealed'];
+const SECRET_WEIGHTS  = ['Campaign', 'Arc', 'Scene'];
+
+// Build a flat pool of connectable entities from state
+function buildEntityPool(state) {
+  const pool = [];
+  (state.party || []).forEach(p =>
+    pool.push({ id: 'char:' + p.name, label: p.name, sub: p.role, kind: 'character' })
+  );
+  (state.npcs || []).forEach(n =>
+    pool.push({ id: n.id, label: n.name, sub: n.title, kind: 'npc' })
+  );
+  (state.factions || []).forEach(f =>
+    pool.push({ id: f.id, label: f.name, sub: f.ideology, kind: 'faction' })
+  );
+  return pool;
+}
+
+function entityLabel(id, pool) {
+  const e = pool.find(p => p.id === id);
+  return e ? e.label : id;
+}
+
+// ── Entity connection picker ───────────────────────────────────
+function EntityPicker({ relates, onChange, pool }) {
+  const [search, setSearch] = useState('');
+
+  const selected  = pool.filter(e => relates.includes(e.id));
+  const available = pool.filter(e => !relates.includes(e.id));
+  const filtered  = search
+    ? available.filter(e =>
+        e.label.toLowerCase().includes(search.toLowerCase()) ||
+        (e.sub || '').toLowerCase().includes(search.toLowerCase())
+      )
+    : available;
+
+  function add(id) {
+    onChange([...relates, id]);
+    setSearch('');
+  }
+
+  function remove(id) {
+    onChange(relates.filter(r => r !== id));
+  }
+
+  return (
+    <div className="faction-field">
+      <label>Connected to</label>
+      {selected.length > 0 && (
+        <div className="entity-chips">
+          {selected.map(e => (
+            <span key={e.id} className={`entity-chip kind-${e.kind}`}>
+              {e.label}
+              <button className="entity-chip-remove" onClick={() => remove(e.id)}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className="entity-search"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Link a character, NPC, or faction…"
+      />
+      {search && (
+        <div className="entity-results">
+          {filtered.slice(0, 8).map(e => (
+            <div key={e.id} className="entity-result" onClick={() => add(e.id)}>
+              <span className="entity-result-name">{e.label}</span>
+              <span className="entity-result-kind">{e.kind}</span>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: '6px 8px', fontSize: 11, color: 'var(--demo-muted)' }}>No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Add secret form ────────────────────────────────────────────
+function AddSecretForm({ onClose }) {
+  const [form, setForm] = useState({ title: '', weight: 'Scene', revealsTo: '' });
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    window.Store.dispatch({
+      type: 'SECRET_ADD',
+      title: form.title.trim(),
+      weight: form.weight,
+      revealsTo: form.revealsTo.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <div className="new-session-form">
+      <div className="new-session-label">New Secret</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="faction-field">
+          <label>The secret</label>
+          <input type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="State it plainly." autoFocus />
+        </div>
+        <div className="faction-field">
+          <label>Weight</label>
+          <div className="weight-row">
+            {SECRET_WEIGHTS.map(w => (
+              <button
+                key={w} type="button"
+                className={`weight-btn${form.weight === w ? ' active ' + w : ''}`}
+                onClick={() => set('weight', w)}
+              >{w}</button>
+            ))}
+          </div>
+        </div>
+        <div className="faction-field">
+          <label>Reveals when</label>
+          <input type="text" value={form.revealsTo} onChange={e => set('revealsTo', e.target.value)} placeholder="What triggers this reveal?" />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!form.title.trim()}>Seal it</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Secret detail ──────────────────────────────────────────────
+function SecretDetail({ secret, pool }) {
+  function patch(field, value) {
+    window.Store.dispatch({ type: 'SECRET_SET_FIELD', id: secret.id, field, value });
+  }
+
+  function setStatus(status) {
+    window.Store.dispatch({ type: 'SECRET_SET_STATUS', id: secret.id, status });
+  }
+
+  function remove() {
+    if (window.confirm('Permanently delete this secret?')) {
+      window.Store.dispatch({ type: 'SECRET_REMOVE', id: secret.id });
+    }
+  }
+
+  return (
+    <div className="secret-detail">
+      <div className="secret-detail-header">
+        {/* Status selector */}
+        <div className="secret-status-bar">
+          {SECRET_STATUSES.map(s => (
+            <button
+              key={s}
+              className={`secret-status-btn${secret.status === s ? ' active ' + s : ''}`}
+              onClick={() => setStatus(s)}
+            >{s}</button>
+          ))}
+        </div>
+
+        {/* Title */}
+        <input
+          className="secret-title-input"
+          value={secret.title}
+          onChange={e => patch('title', e.target.value)}
+          placeholder="The secret…"
+        />
+
+        {/* Weight */}
+        <div className="weight-row">
+          {SECRET_WEIGHTS.map(w => (
+            <button
+              key={w}
+              className={`weight-btn${secret.weight === w ? ' active ' + w : ''}`}
+              onClick={() => patch('weight', w)}
+            >{w}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="secret-detail-body">
+        <div className="faction-field">
+          <label>Reveals when</label>
+          <input
+            value={secret.revealsTo || ''}
+            onChange={e => patch('revealsTo', e.target.value)}
+            placeholder="What triggers this reveal?"
+          />
+        </div>
+
+        <EntityPicker
+          relates={secret.relates || []}
+          onChange={v => patch('relates', v)}
+          pool={pool}
+        />
+
+        <div className="faction-field">
+          <label>DM Notes</label>
+          <textarea
+            value={secret.notes || ''}
+            onChange={e => patch('notes', e.target.value)}
+            placeholder="Context, consequences, foreshadowing planted…"
+            rows={4}
+          />
+        </div>
+      </div>
+
+      <div className="secret-detail-actions" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', borderTop: '1px solid var(--demo-border)' }}>
+        <div style={{ fontSize: 11, color: 'var(--demo-muted)', alignSelf: 'center' }}>
+          {(secret.relates || []).length} connection{secret.relates?.length !== 1 ? 's' : ''}
+        </div>
+        <button className="btn-danger" onClick={remove}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Vault page ─────────────────────────────────────────────────
+function VaultPage({ secrets, state }) {
+  const [filter, setFilter]     = useState('all');
+  const [selectedId, setSelectedId] = useState(secrets[0]?.id || null);
+  const [adding, setAdding]     = useState(false);
+  const pool = buildEntityPool(state);
+
+  const prevLen = useRef(secrets.length);
+  useEffect(() => {
+    if (secrets.length > prevLen.current && secrets[secrets.length - 1]) {
+      setSelectedId(secrets[secrets.length - 1].id);
+    }
+    if (secrets.length === 0) setSelectedId(null);
+    prevLen.current = secrets.length;
+  }, [secrets.length]);
+
+  const visible = filter === 'all' ? secrets : secrets.filter(s => s.status === filter);
+  const selected = secrets.find(s => s.id === selectedId) || visible[0] || null;
+
+  const counts = {
+    sealed:   secrets.filter(s => s.status === 'sealed').length,
+    cracked:  secrets.filter(s => s.status === 'cracked').length,
+    revealed: secrets.filter(s => s.status === 'revealed').length,
+  };
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">What the players don't know</div>
+          <div className="page-title">The Vault</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ Add Secret'}
+        </button>
+      </div>
+
+      {secrets.length === 0 && !adding ? (
+        <div className="vault-empty">
+          <span style={{ width: 36, height: 36, color: 'var(--demo-muted)', opacity: 0.3 }}>{D.secrets}</span>
+          <h3>The vault is empty</h3>
+          <p>Seal your campaign's hidden truths here — who ordered the murder, who is the heir, what the patron actually wants.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Seal the first secret</button>
+        </div>
+      ) : (
+        <div className="vault-layout">
+          <div>
+            {adding && <AddSecretForm onClose={() => setAdding(false)} />}
+
+            {/* Filter tabs */}
+            <div className="vault-tabs">
+              {['all', 'sealed', 'cracked', 'revealed'].map(f => (
+                <button
+                  key={f}
+                  className={`vault-tab${filter === f ? ' active' : ''}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f === 'all' ? `All (${secrets.length})` : `${f} (${counts[f]})`}
+                </button>
+              ))}
+            </div>
+
+            <div className="vault-list">
+              {visible.map(s => (
+                <div
+                  key={s.id}
+                  className={`secret-list-item status-${s.status}${selected?.id === s.id ? ' active' : ''}`}
+                  onClick={() => setSelectedId(s.id)}
+                >
+                  <div className="secret-list-top">
+                    <span className={`secret-status-dot ${s.status}`} />
+                    <span className={`secret-list-title${s.status === 'sealed' ? ' blurred' : ''}`}>
+                      {s.title}
+                    </span>
+                    <span className={`secret-weight-chip ${s.weight}`}>{s.weight}</span>
+                  </div>
+                  {(s.relates || []).length > 0 && (
+                    <div className="secret-list-relates">
+                      {s.relates.map(id => entityLabel(id, pool)).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {visible.length === 0 && (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--demo-muted)', fontSize: 12 }}>
+                  No {filter} secrets.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selected && <SecretDetail key={selected.id} secret={selected} pool={pool} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Character helpers ──────────────────────────────────────────
 function hpStatus(pct) {
   if (pct <= 25) return 'crit';
@@ -1391,7 +1708,7 @@ function DemoApp() {
       case 'sessions':    return <SessionsPage sessions={state.sessions} startNew={sessionStartNew} />;
       case 'factions':    return <FactionsPage factions={state.factions} />;
       case 'characters':  return <CharactersPage party={state.party} />;
-      case 'secrets':     return <PlaceholderPage title="The Vault" icon={D.secrets} />;
+      case 'secrets':     return <VaultPage secrets={state.secrets} state={state} />;
       case 'rumors':      return <PlaceholderPage title="Rumors" icon={D.rumor} />;
       case 'prep':        return <PlaceholderPage title="Prep" icon={D.prep} />;
       case 'map':         return <PlaceholderPage title="Maps" icon={D.map} />;

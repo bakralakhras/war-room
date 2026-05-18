@@ -196,6 +196,13 @@
       case 'SECRET_REMOVE':
         return { ...s, secrets: s.secrets.filter(sec => sec.id !== a.id) };
 
+      case 'SECRET_SET_FIELD': {
+        const secrets = s.secrets.map(sec =>
+          sec.id === a.id ? { ...sec, [a.field]: a.value } : sec
+        );
+        return { ...s, secrets };
+      }
+
       // ── Rumors ───────────────────────────────────────────────
       case 'RUMOR_ADD': {
         const r = { id: 'r-' + Date.now(), text: a.text, source: a.source || '', weight: a.weight || 'common' };
