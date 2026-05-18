@@ -1,0 +1,886 @@
+// War Room — remaining page components (loaded after demo.jsx globals are set)
+// Pages: Rumors, Prep, Timeline, Codex, Map, Settings
+
+const { useState: _useState, useEffect: _useEffect, useRef: _useRef, useCallback: _useCallback } = React;
+
+// ════════════════════════════════════════════════════════════════
+// RUMORS
+// ════════════════════════════════════════════════════════════════
+
+const RUMOR_WEIGHTS = ['common', 'ominous', 'tactical', 'secret', 'lore'];
+
+function AddRumorForm({ onClose }) {
+  const [text, setText]     = _useState('');
+  const [source, setSource] = _useState('');
+  const [weight, setWeight] = _useState('common');
+
+  function submit(e) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    window.Store.dispatch({ type: 'RUMOR_ADD', text: text.trim(), source: source.trim(), weight });
+    onClose();
+  }
+
+  return (
+    <div className="add-rumor-form">
+      <div className="new-session-label">New Rumor</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="faction-field">
+          <label>The rumor</label>
+          <textarea
+            value={text} onChange={e => setText(e.target.value)}
+            placeholder="What is being whispered?" rows={2}
+            style={{ background: 'oklch(0.17 0.010 260)', border: '1px solid var(--demo-border)', borderRadius: 4, padding: '7px 10px', color: 'var(--demo-text)', fontFamily: 'var(--f-display)', fontSize: 13, outline: 'none', width: '100%', resize: 'none', fontStyle: 'italic' }}
+            autoFocus
+          />
+        </div>
+        <div className="faction-field">
+          <label>Source</label>
+          <input type="text" value={source} onChange={e => setSource(e.target.value)} placeholder="Who said it?" />
+        </div>
+        <div className="faction-field">
+          <label>Weight</label>
+          <div className="weight-selector">
+            {RUMOR_WEIGHTS.map(w => (
+              <button key={w} type="button" className={`weight-pill${weight === w ? ' active ' + w : ''}`} onClick={() => setWeight(w)}>{w}</button>
+            ))}
+          </div>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!text.trim()}>Add rumor</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function RumorCard({ rumor }) {
+  function patch(field, value) {
+    window.Store.dispatch({ type: 'RUMOR_SET_FIELD', id: rumor.id, field, value });
+  }
+
+  return (
+    <div className={`rumor-card${rumor.delivered ? ' delivered' : ''}`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
+        <span className={`rumor-weight ${rumor.weight}`} style={{ flexShrink: 0 }}>{rumor.weight}</span>
+      </div>
+      <div className="rumor-card-body">
+        <textarea
+          className="rumor-card-text"
+          value={rumor.text}
+          rows={2}
+          onChange={e => { autoResizeTA(e.target); patch('text', e.target.value); }}
+          onFocus={e => autoResizeTA(e.target)}
+          ref={el => el && autoResizeTA(el)}
+        />
+        <input
+          className="rumor-card-source"
+          value={rumor.source || ''}
+          onChange={e => patch('source', e.target.value)}
+          placeholder="— source unknown"
+        />
+      </div>
+      <div className="rumor-card-actions">
+        <button
+          className="rumor-deliver-btn"
+          onClick={() => window.Store.dispatch({ type: 'RUMOR_TOGGLE_DELIVERED', id: rumor.id })}
+        >{rumor.delivered ? 'Delivered' : 'Deliver'}</button>
+        <button
+          className="icon-btn"
+          onClick={() => window.Store.dispatch({ type: 'RUMOR_REMOVE', id: rumor.id })}
+          title="Remove rumor"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M1 1l8 8M9 1L1 9"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RumorsPage({ rumors }) {
+  const [filter, setFilter]  = _useState('all');
+  const [adding, setAdding]  = _useState(false);
+
+  const visible = filter === 'all'
+    ? rumors
+    : filter === 'delivered'
+    ? rumors.filter(r => r.delivered)
+    : rumors.filter(r => r.weight === filter && !r.delivered);
+
+  const undelivered = rumors.filter(r => !r.delivered).length;
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Word on the street</div>
+          <div className="page-title">Rumors</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ Add Rumor'}
+        </button>
+      </div>
+
+      {adding && <AddRumorForm onClose={() => setAdding(false)} />}
+
+      <div className="rumors-filter">
+        {['all', ...RUMOR_WEIGHTS, 'delivered'].map(f => {
+          const count = f === 'all' ? rumors.length
+            : f === 'delivered' ? rumors.filter(r => r.delivered).length
+            : rumors.filter(r => r.weight === f).length;
+          return (
+            <button key={f} className={`vault-tab${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+              {f} {count > 0 ? `(${count})` : ''}
+            </button>
+          );
+        })}
+      </div>
+
+      {rumors.length === 0 ? (
+        <div className="vault-empty">
+          <h3>No rumors in circulation</h3>
+          <p>Add the whispers, warnings, and half-truths your players might hear.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Start the gossip</button>
+        </div>
+      ) : (
+        <div>
+          {visible.map(r => <RumorCard key={r.id} rumor={r} />)}
+          {visible.length === 0 && (
+            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--demo-muted)', fontSize: 12 }}>
+              No {filter} rumors.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// PREP
+// ════════════════════════════════════════════════════════════════
+
+function PrepPage({ prep }) {
+  const [adding, setAdding]   = _useState(false);
+  const [form, setForm]       = _useState({ kind: 'scene', title: '', note: '' });
+
+  const scenes = prep.filter(p => p.kind === 'scene');
+  const beats  = prep.filter(p => p.kind === 'beat');
+  const done   = prep.filter(p => p.done);
+
+  function addItem(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    window.Store.dispatch({ type: 'PREP_ADD', kind: form.kind, title: form.title.trim(), note: form.note.trim() });
+    setForm(f => ({ ...f, title: '', note: '' }));
+    setAdding(false);
+  }
+
+  function carryForward() {
+    if (window.confirm('Clear all done items and keep only unfinished prep?')) {
+      window.Store.dispatch({ type: 'PREP_CARRY_FORWARD' });
+    }
+  }
+
+  function PrepItem({ item }) {
+    return (
+      <div className={`prep-card${item.done ? ' done' : ''}`}>
+        <div
+          className={`prep-checkbox${item.done ? ' checked' : ''}`}
+          onClick={() => window.Store.dispatch({ type: 'PREP_TOGGLE_DONE', id: item.id })}
+        >
+          {item.done && (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <path d="M1.5 5l3 3 4-5"/>
+            </svg>
+          )}
+        </div>
+        <div className="prep-card-body">
+          <input
+            className="prep-card-title"
+            value={item.title}
+            onChange={e => window.Store.dispatch({ type: 'PREP_SET_FIELD', id: item.id, field: 'title', value: e.target.value })}
+          />
+          <input
+            className="prep-card-note"
+            value={item.note || ''}
+            onChange={e => window.Store.dispatch({ type: 'PREP_SET_FIELD', id: item.id, field: 'note', value: e.target.value })}
+            placeholder="DM note…"
+          />
+        </div>
+        <span className={`prep-kind ${item.kind}`} style={{ flexShrink: 0 }}>{item.kind}</span>
+        <button className="icon-btn" onClick={() => window.Store.dispatch({ type: 'PREP_REMOVE', id: item.id })}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M1 1l8 8M9 1L1 9"/>
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Before the session</div>
+          <div className="page-title">Session Prep</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {done.length > 0 && (
+            <button className="btn-secondary" onClick={carryForward}>Carry forward</button>
+          )}
+          <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+            {adding ? 'Cancel' : '+ Add Item'}
+          </button>
+        </div>
+      </div>
+
+      {adding && (
+        <div className="add-rumor-form">
+          <div className="new-session-label">New Prep Item</div>
+          <form onSubmit={addItem} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className={`weight-pill${form.kind === 'scene' ? ' active scene' : ''}`} onClick={() => setForm(f => ({ ...f, kind: 'scene' }))} style={{ padding: '4px 12px' }}>Scene</button>
+              <button type="button" className={`weight-pill${form.kind === 'beat' ? ' active beat' : ''}`} onClick={() => setForm(f => ({ ...f, kind: 'beat' }))} style={{ padding: '4px 12px' }}>Beat</button>
+            </div>
+            <div className="faction-field">
+              <label>Title</label>
+              <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="What happens?" autoFocus />
+            </div>
+            <div className="faction-field">
+              <label>DM note</label>
+              <input type="text" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Conditions, options, context…" />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={!form.title.trim()}>Add</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {prep.length === 0 && !adding ? (
+        <div className="vault-empty">
+          <h3>No prep yet</h3>
+          <p>Plan your scenes and story beats before each session.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Add first item</button>
+        </div>
+      ) : (
+        <div>
+          {scenes.length > 0 && (
+            <div>
+              <div className="prep-section-label">Scenes</div>
+              {scenes.map(p => <PrepItem key={p.id} item={p} />)}
+            </div>
+          )}
+          {beats.length > 0 && (
+            <div>
+              <div className="prep-section-label">Beats</div>
+              {beats.map(p => <PrepItem key={p.id} item={p} />)}
+            </div>
+          )}
+          {done.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <div className="prep-actions-bar">
+                <span style={{ fontSize: 11, color: 'var(--demo-muted)' }}>{done.length} item{done.length !== 1 ? 's' : ''} done</span>
+                <button className="btn-secondary" style={{ fontSize: 11, padding: '3px 10px' }} onClick={carryForward}>Carry forward →</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// TIMELINE
+// ════════════════════════════════════════════════════════════════
+
+function TimelinePage({ timeline, sessions }) {
+  const [adding, setAdding] = _useState(false);
+  const [form, setForm]     = _useState({ worldDate: '', sessionRef: '', title: '', description: '' });
+  const [oldest, setOldest] = _useState(false);
+
+  const ordered = oldest ? [...timeline].reverse() : timeline;
+
+  function addEvent(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    window.Store.dispatch({ type: 'TIMELINE_ADD', ...form });
+    setForm({ worldDate: '', sessionRef: '', title: '', description: '' });
+    setAdding(false);
+  }
+
+  function patch(id, field, value) {
+    window.Store.dispatch({ type: 'TIMELINE_SET_FIELD', id, field, value });
+  }
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">What has come to pass</div>
+          <div className="page-title">Timeline</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-secondary" onClick={() => setOldest(o => !o)}>
+            {oldest ? 'Newest first' : 'Oldest first'}
+          </button>
+          <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+            {adding ? 'Cancel' : '+ Add Event'}
+          </button>
+        </div>
+      </div>
+
+      {adding && (
+        <div className="add-rumor-form" style={{ marginBottom: 20 }}>
+          <div className="new-session-label">New Event</div>
+          <form onSubmit={addEvent} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div className="faction-field" style={{ flex: 1 }}>
+                <label>World date</label>
+                <input type="text" value={form.worldDate} onChange={e => setForm(f => ({ ...f, worldDate: e.target.value }))} placeholder="e.g. Day 14, Month of Frost" autoFocus />
+              </div>
+              <div className="faction-field" style={{ maxWidth: 100 }}>
+                <label>Session #</label>
+                <input type="text" value={form.sessionRef} onChange={e => setForm(f => ({ ...f, sessionRef: e.target.value }))} placeholder="13" />
+              </div>
+            </div>
+            <div className="faction-field">
+              <label>Title</label>
+              <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="What happened?" />
+            </div>
+            <div className="faction-field">
+              <label>Description</label>
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Details…" rows={2} />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={!form.title.trim()}>Add event</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {timeline.length === 0 && !adding ? (
+        <div className="vault-empty">
+          <h3>No events recorded</h3>
+          <p>Build a chronological record of the campaign — battles, discoveries, deaths, turning points.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Record first event</button>
+        </div>
+      ) : (
+        <div className="timeline-list">
+          {ordered.map(ev => (
+            <div className="timeline-event" key={ev.id}>
+              <div className="timeline-dot" />
+              <div className="timeline-event-body">
+                <div className="timeline-event-header">
+                  <input
+                    className="timeline-date-input"
+                    value={ev.worldDate || ''}
+                    onChange={e => patch(ev.id, 'worldDate', e.target.value)}
+                    placeholder="World date…"
+                  />
+                  {ev.sessionRef && (
+                    <span className="timeline-session-badge">Session {ev.sessionRef}</span>
+                  )}
+                  <button className="icon-btn" onClick={() => window.Store.dispatch({ type: 'TIMELINE_REMOVE', id: ev.id })}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                  </button>
+                </div>
+                <input
+                  className="timeline-title-input"
+                  value={ev.title}
+                  onChange={e => patch(ev.id, 'title', e.target.value)}
+                  placeholder="Event title…"
+                />
+                <textarea
+                  className="timeline-desc-input"
+                  value={ev.description || ''}
+                  rows={1}
+                  onChange={e => { autoResizeTA(e.target); patch(ev.id, 'description', e.target.value); }}
+                  onFocus={e => autoResizeTA(e.target)}
+                  ref={el => el && autoResizeTA(el)}
+                  placeholder="What happened…"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// CODEX
+// ════════════════════════════════════════════════════════════════
+
+function CodexPage({ codex }) {
+  const [selectedId, setSelectedId] = _useState(codex[0]?.id || null);
+  const [search, setSearch]         = _useState('');
+  const [tagFilter, setTagFilter]   = _useState('');
+
+  const selected = codex.find(e => e.id === selectedId) || codex[0] || null;
+
+  // Collect all unique tags
+  const allTags = [...new Set(codex.flatMap(e => e.tags || []))].sort();
+
+  const visible = codex.filter(e => {
+    const matchSearch = !search || e.title.toLowerCase().includes(search.toLowerCase()) || (e.body || '').toLowerCase().includes(search.toLowerCase());
+    const matchTag    = !tagFilter || (e.tags || []).includes(tagFilter);
+    return matchSearch && matchTag;
+  });
+
+  function addEntry() {
+    window.Store.dispatch({ type: 'CODEX_ADD', title: 'New Entry' });
+  }
+
+  function patch(field, value) {
+    if (!selected) return;
+    window.Store.dispatch({ type: 'CODEX_SET_FIELD', id: selected.id, field, value });
+  }
+
+  function parseTags(str) {
+    return str.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  }
+
+  const wordCount = selected ? (selected.body || '').trim().split(/\s+/).filter(Boolean).length : 0;
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Campaign knowledge base</div>
+          <div className="page-title">Codex</div>
+        </div>
+        <button className="btn-primary" onClick={addEntry}>+ New Entry</button>
+      </div>
+
+      {codex.length === 0 ? (
+        <div className="vault-empty">
+          <h3>The codex is empty</h3>
+          <p>Write lore, NPC backgrounds, faction histories, location descriptions — anything you want to remember.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={addEntry}>Write first entry</button>
+        </div>
+      ) : (
+        <div className="codex-layout">
+          <div>
+            {/* Search */}
+            <div style={{ marginBottom: 8 }}>
+              <input
+                style={{ width: '100%', background: 'oklch(0.17 0.010 260)', border: '1px solid var(--demo-border)', borderRadius: 5, padding: '7px 10px', color: 'var(--demo-text)', fontFamily: 'inherit', fontSize: 12, outline: 'none' }}
+                placeholder="Search entries…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {allTags.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                <button className={`vault-tab${!tagFilter ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setTagFilter('')}>All</button>
+                {allTags.map(t => (
+                  <button key={t} className={`vault-tab${tagFilter === t ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setTagFilter(t)}>{t}</button>
+                ))}
+              </div>
+            )}
+            <div className="codex-list">
+              {visible.map(e => (
+                <div
+                  key={e.id}
+                  className={`codex-item${selected?.id === e.id ? ' active' : ''}`}
+                  onClick={() => setSelectedId(e.id)}
+                >
+                  <div className="codex-item-title">{e.title}</div>
+                  {(e.tags || []).length > 0 && (
+                    <div className="codex-item-tags">
+                      {e.tags.map(t => <span key={t} className="codex-tag">{t}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {visible.length === 0 && (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--demo-muted)', fontSize: 12 }}>No entries match.</div>
+              )}
+            </div>
+          </div>
+
+          {selected && (
+            <div className="codex-editor">
+              <div className="codex-editor-header">
+                <input
+                  className="codex-editor-title"
+                  value={selected.title}
+                  onChange={e => patch('title', e.target.value)}
+                  placeholder="Entry title…"
+                />
+                <input
+                  className="codex-tag-input"
+                  value={(selected.tags || []).join(', ')}
+                  onChange={e => patch('tags', parseTags(e.target.value))}
+                  placeholder="Tags: history, npc, location…  (comma-separated)"
+                />
+              </div>
+              <textarea
+                className="codex-editor-body"
+                value={selected.body || ''}
+                onChange={e => patch('body', e.target.value)}
+                placeholder="Write freely. Lore, backstory, DM notes, rumour chains, anything..."
+              />
+              <div className="codex-editor-footer">
+                <span className="codex-word-count">{wordCount} word{wordCount !== 1 ? 's' : ''}</span>
+                <button className="btn-danger" onClick={() => {
+                  if (window.confirm('Delete "' + selected.title + '"?')) {
+                    window.Store.dispatch({ type: 'CODEX_REMOVE', id: selected.id });
+                    setSelectedId(codex[0]?.id || null);
+                  }
+                }}>Delete</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// MAP
+// ════════════════════════════════════════════════════════════════
+
+const LOC_KINDS = ['town', 'capital', 'fortress', 'abbey', 'port', 'ruin', 'dungeon', 'other'];
+
+const LOC_KIND_STYLE = {
+  capital:  { bg: 'oklch(0.22 0.040 80)',  border: 'oklch(0.55 0.090 80)',  icon: '♛' },
+  fortress: { bg: 'oklch(0.20 0.030 240)', border: 'oklch(0.45 0.070 240)', icon: '⚔' },
+  town:     { bg: 'oklch(0.20 0.020 150)', border: 'oklch(0.45 0.060 150)', icon: '⌂' },
+  abbey:    { bg: 'oklch(0.20 0.025 200)', border: 'oklch(0.45 0.060 200)', icon: '✝' },
+  port:     { bg: 'oklch(0.20 0.030 220)', border: 'oklch(0.45 0.065 220)', icon: '⚓' },
+  ruin:     { bg: 'oklch(0.18 0.020 40)',  border: 'oklch(0.40 0.050 40)',  icon: '⌬' },
+  dungeon:  { bg: 'oklch(0.16 0.020 300)', border: 'oklch(0.38 0.055 300)', icon: '◈' },
+  other:    { bg: 'oklch(0.18 0.010 260)', border: 'oklch(0.38 0.012 260)', icon: '●' },
+};
+
+function MapPin({ loc, selected, onClick }) {
+  const style = LOC_KIND_STYLE[loc.kind] || LOC_KIND_STYLE.other;
+  return (
+    <div
+      className={`map-pin${selected ? ' selected' : ''}`}
+      style={{ left: (loc.x * 100) + '%', top: (loc.y * 100) + '%' }}
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      title={loc.name}
+    >
+      {loc.party && <div className="map-pin-pulse" />}
+      <div className="map-pin-icon" style={{ background: style.bg, borderColor: style.border, color: style.border }}>
+        <span style={{ fontSize: 11, lineHeight: 1 }}>{style.icon}</span>
+      </div>
+      <div className="map-pin-label">{loc.label || loc.name}</div>
+    </div>
+  );
+}
+
+function MapPage({ locations }) {
+  const [selectedId, setSelectedId] = _useState(locations.find(l => l.party)?.id || locations[0]?.id || null);
+  const [addMode, setAddMode]       = _useState(false);
+  const [kindFilter, setKindFilter] = _useState('all');
+  const canvasRef = _useRef(null);
+
+  const selected = locations.find(l => l.id === selectedId) || null;
+  const visible  = kindFilter === 'all' ? locations : locations.filter(l => l.kind === kindFilter);
+
+  function handleCanvasClick(e) {
+    if (!addMode) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = parseFloat(((e.clientX - rect.left) / rect.width).toFixed(3));
+    const y = parseFloat(((e.clientY - rect.top)  / rect.height).toFixed(3));
+    window.Store.dispatch({ type: 'LOCATION_ADD', x, y, label: 'New Location', kind: 'town' });
+    setAddMode(false);
+  }
+
+  function patch(field, value) {
+    if (!selected) return;
+    window.Store.dispatch({ type: 'LOCATION_SET_FIELD', id: selected.id, field, value });
+  }
+
+  function setPartyHere() {
+    if (!selected) return;
+    window.Store.dispatch({ type: 'LOCATION_SET_PARTY', id: selected.id });
+  }
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">The world</div>
+          <div className="page-title">Map</div>
+        </div>
+      </div>
+
+      <div className="map-layout">
+        {/* Sidebar: location list */}
+        <div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <button className={`vault-tab${kindFilter === 'all' ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setKindFilter('all')}>All ({locations.length})</button>
+              {LOC_KINDS.filter(k => locations.some(l => l.kind === k)).map(k => (
+                <button key={k} className={`vault-tab${kindFilter === k ? ' active' : ''}`} style={{ fontSize: 10, padding: '3px 9px' }} onClick={() => setKindFilter(k)}>{k}</button>
+              ))}
+            </div>
+          </div>
+          <div className="map-sidebar">
+            {visible.map(loc => {
+              const s = LOC_KIND_STYLE[loc.kind] || LOC_KIND_STYLE.other;
+              return (
+                <div
+                  key={loc.id}
+                  className={`map-loc-item${selectedId === loc.id ? ' active' : ''}`}
+                  onClick={() => setSelectedId(loc.id)}
+                >
+                  <div className="map-loc-icon" style={{ background: s.bg, color: s.border }}>
+                    <span style={{ fontSize: 11 }}>{s.icon}</span>
+                  </div>
+                  <span className="map-loc-name">{loc.label || loc.name}</span>
+                  {loc.party && <span style={{ fontSize: 9, color: 'var(--brass, oklch(0.72 0.090 85))', flexShrink: 0 }}>HERE</span>}
+                  <span className="map-loc-kind">{loc.kind}</span>
+                </div>
+              );
+            })}
+            {locations.length === 0 && (
+              <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: 'var(--demo-muted)' }}>
+                Click the map to place your first location.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Map + detail */}
+        <div className="map-container">
+          <div className="map-mode-bar">
+            <span className="map-mode-hint">
+              {addMode ? '🎯 Click anywhere on the map to place a new location.' : 'Click a pin to select it. Use the button to place new locations.'}
+            </span>
+            <button
+              className={addMode ? 'btn-primary' : 'btn-secondary'}
+              style={{ fontSize: 11, padding: '4px 12px' }}
+              onClick={() => setAddMode(m => !m)}
+            >
+              {addMode ? 'Cancel placement' : '+ Place location'}
+            </button>
+          </div>
+
+          <div
+            ref={canvasRef}
+            className={`map-canvas-wrap${!addMode ? ' view-mode' : ''}`}
+            onClick={handleCanvasClick}
+          >
+            <div className="map-bg" />
+            <div className="map-grid" />
+            {locations.map(loc => (
+              <MapPin
+                key={loc.id}
+                loc={loc}
+                selected={selectedId === loc.id}
+                onClick={() => setSelectedId(loc.id)}
+              />
+            ))}
+          </div>
+
+          {/* Selected location detail */}
+          {selected && (
+            <div className="map-detail">
+              <div className="map-detail-header">
+                <div className="map-loc-icon" style={{ ...LOC_KIND_STYLE[selected.kind] && { background: LOC_KIND_STYLE[selected.kind].bg, color: LOC_KIND_STYLE[selected.kind].border }, width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 13 }}>{(LOC_KIND_STYLE[selected.kind] || LOC_KIND_STYLE.other).icon}</span>
+                </div>
+                <input
+                  style={{ fontFamily: 'var(--f-display)', fontSize: 18, fontWeight: 600, color: 'oklch(0.92 0.010 260)', background: 'transparent', border: 'none', outline: 'none', flex: 1, borderBottom: '1px solid transparent' }}
+                  value={selected.label || selected.name || ''}
+                  onChange={e => { patch('label', e.target.value); patch('name', e.target.value); }}
+                  placeholder="Location name"
+                />
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button
+                    className={selected.party ? 'btn-primary' : 'btn-secondary'}
+                    style={{ fontSize: 11, padding: '4px 10px' }}
+                    onClick={setPartyHere}
+                  >{selected.party ? '★ Party here' : 'Move party here'}</button>
+                  <button className="icon-btn" onClick={() => {
+                    if (window.confirm('Remove this location?')) {
+                      window.Store.dispatch({ type: 'LOCATION_REMOVE', id: selected.id });
+                      setSelectedId(locations.filter(l => l.id !== selected.id)[0]?.id || null);
+                    }
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="faction-field" style={{ flex: 1 }}>
+                  <label>Kind</label>
+                  <select
+                    value={selected.kind}
+                    onChange={e => patch('kind', e.target.value)}
+                    style={{ background: 'oklch(0.17 0.010 260)', border: '1px solid var(--demo-border)', borderRadius: 4, padding: '6px 8px', color: 'var(--demo-text)', fontFamily: 'inherit', fontSize: 12, outline: 'none', width: '100%' }}
+                  >
+                    {LOC_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
+                <div className="faction-field" style={{ flex: 2 }}>
+                  <label>Region</label>
+                  <input value={selected.region || ''} onChange={e => patch('region', e.target.value)} placeholder="Region name" />
+                </div>
+              </div>
+              <div className="faction-field">
+                <label>Note</label>
+                <textarea value={selected.note || ''} onChange={e => patch('note', e.target.value)} placeholder="Atmosphere, inhabitants, current situation…" rows={2} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════════════════════
+
+function SettingsPage({ state }) {
+  const { campaign } = state;
+  const user = window.Auth.session;
+
+  const [saved, setSaved] = _useState(false);
+
+  function setCampaignField(field, value) {
+    window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field, value });
+    flash();
+  }
+
+  function flash() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Configuration</div>
+          <div className="page-title">Settings</div>
+        </div>
+        {saved && (
+          <span style={{ fontSize: 12, color: 'oklch(0.65 0.110 155)', alignSelf: 'center' }}>✓ Saved</span>
+        )}
+      </div>
+
+      <div className="settings-sections">
+
+        {/* Campaign */}
+        <div className="settings-section">
+          <div className="settings-section-head">Campaign</div>
+          <div className="settings-section-body">
+            <div className="settings-field">
+              <label>Campaign name</label>
+              <input value={campaign.name} onChange={e => setCampaignField('name', e.target.value)} />
+            </div>
+            <div className="settings-field">
+              <label>Subtitle / tagline</label>
+              <input value={campaign.subtitle || ''} onChange={e => setCampaignField('subtitle', e.target.value)} placeholder="A short tagline" />
+            </div>
+            <div className="settings-row">
+              <div className="settings-field">
+                <label>Current session</label>
+                <input type="number" min="1" value={campaign.session} onChange={e => setCampaignField('session', parseInt(e.target.value, 10) || 1)} />
+              </div>
+              <div className="settings-field">
+                <label>Planned sessions</label>
+                <input type="number" min="1" value={campaign.sessionsTotal} onChange={e => setCampaignField('sessionsTotal', parseInt(e.target.value, 10) || 20)} />
+              </div>
+            </div>
+            <div className="settings-field">
+              <label>Next session</label>
+              <input value={campaign.nextSession || ''} onChange={e => setCampaignField('nextSession', e.target.value)} placeholder="e.g. Sat, 27 Vael · 19:00" />
+            </div>
+          </div>
+        </div>
+
+        {/* Current location */}
+        <div className="settings-section">
+          <div className="settings-section-head">Party Location</div>
+          <div className="settings-section-body">
+            <div className="settings-row">
+              <div className="settings-field">
+                <label>Location name</label>
+                <input value={campaign.location?.name || ''} onChange={e => window.Store.dispatch({ type: 'CAMPAIGN_SET_LOCATION', patch: { name: e.target.value } })} placeholder="Where is the party?" />
+              </div>
+              <div className="settings-field">
+                <label>Region</label>
+                <input value={campaign.location?.region || ''} onChange={e => window.Store.dispatch({ type: 'CAMPAIGN_SET_LOCATION', patch: { region: e.target.value } })} placeholder="Region" />
+              </div>
+            </div>
+            <div className="settings-field">
+              <label>Atmosphere note</label>
+              <input value={campaign.location?.note || ''} onChange={e => window.Store.dispatch({ type: 'CAMPAIGN_SET_LOCATION', patch: { note: e.target.value } })} placeholder="Smell, mood, sensory detail…" />
+            </div>
+          </div>
+        </div>
+
+        {/* Account */}
+        <div className="settings-section">
+          <div className="settings-section-head">Account</div>
+          <div className="settings-section-body">
+            <div className="settings-field">
+              <label>Username</label>
+              <input value={user?.username || ''} disabled style={{ opacity: 0.6 }} />
+            </div>
+            <div className="settings-field">
+              <label>Tier</label>
+              <input value={user?.tier || 'free'} disabled style={{ opacity: 0.6, textTransform: 'capitalize' }} />
+            </div>
+            <button className="btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={() => window.Auth.logout()}>
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        {/* Danger zone */}
+        <div className="settings-section danger-zone">
+          <div className="settings-section-head">Danger Zone</div>
+          <div className="settings-section-body">
+            <p style={{ fontSize: 12, color: 'var(--demo-muted)', lineHeight: 1.5 }}>
+              Reset wipes all campaign data for your account and reloads the defaults. This cannot be undone.
+            </p>
+            <button
+              className="btn-danger"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => {
+                if (window.confirm('Reset all campaign data? This cannot be undone.')) {
+                  window.Store.reset();
+                }
+              }}
+            >
+              Reset campaign data
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// Shared utility exposed to demo.jsx
+// ════════════════════════════════════════════════════════════════
+
+function autoResizeTA(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+Object.assign(window, { RumorsPage, PrepPage, TimelinePage, CodexPage, MapPage, SettingsPage });

@@ -119,12 +119,14 @@ const NAV_ITEMS = [
   { id: 'sessions',   label: 'Sessions',   icon: D.sessions },
   { id: 'factions',   label: 'Factions',   icon: D.factions },
   { id: 'characters', label: 'Characters', icon: D.characters },
+  { id: 'party',      label: 'Party',      icon: D.characters },
   { id: 'secrets',    label: 'Vault',      icon: D.secrets },
   { id: 'rumors',     label: 'Rumors',     icon: D.rumor },
   { id: 'prep',       label: 'Prep',       icon: D.prep },
   { id: 'map',        label: 'Maps',       icon: D.map },
   { id: 'codex',      label: 'Codex',      icon: D.codex },
   { id: 'timeline',   label: 'Timeline',   icon: D.timeline },
+  { id: 'settings',   label: 'Settings',   icon: D.settings },
 ];
 
 function Sidebar({ active, onNav, state }) {
@@ -136,7 +138,8 @@ function Sidebar({ active, onNav, state }) {
         {NAV_ITEMS.map(item => {
           const badge = item.id === 'sessions'  ? state.sessions.length
                       : item.id === 'factions'  ? state.factions.length
-                      : item.id === 'characters'? state.party.length
+                      : item.id === 'characters'? state.npcs.length
+                      : item.id === 'party'     ? state.party.length
                       : item.id === 'secrets'   ? sealed
                       : item.id === 'rumors'    ? state.rumors.length
                       : item.id === 'prep'      ? state.prep.length
@@ -1356,8 +1359,8 @@ function avatarStyle(name) {
 }
 const AV_CLASSES_BG = [];
 
-// ── Characters page ────────────────────────────────────────────
-function CharactersPage({ party }) {
+// ── Party page (HP tracker) ────────────────────────────────────
+function PartyPage({ party }) {
   const [selectedName, setSelectedName] = useState(party[0]?.name || null);
   const [adding, setAdding] = useState(false);
 
@@ -1375,7 +1378,7 @@ function CharactersPage({ party }) {
       <div className="page-header">
         <div className="page-header-text">
           <div className="page-eyebrow">The Party</div>
-          <div className="page-title">Characters</div>
+          <div className="page-title">Party</div>
         </div>
         <button className="btn-primary" onClick={() => setAdding(a => !a)}>
           {adding ? 'Cancel' : '+ Add Character'}
@@ -1422,6 +1425,379 @@ function CharactersPage({ party }) {
             </div>
           </div>
           {selected && <CharacterDetail key={selected.name} pc={selected} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── NPC Add form ───────────────────────────────────────────────
+function AddNPCForm({ onClose }) {
+  const state = window.Store.get();
+  const [form, setForm] = useState({ name: '', title: '', faction: '', disposition: 'neutral', location: '', quote: '' });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    window.Store.dispatch({
+      type: 'NPC_ADD',
+      name: form.name.trim(),
+      title: form.title.trim(),
+      faction: form.faction.trim(),
+      disposition: form.disposition,
+      location: form.location.trim(),
+      quote: form.quote.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <div className="new-session-form" style={{ marginBottom: 16 }}>
+      <div className="new-session-label">New NPC</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="faction-field">
+          <label>Name</label>
+          <input type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Full name" autoFocus />
+        </div>
+        <div className="faction-field">
+          <label>Title / Role</label>
+          <input type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Captain of the Guard" />
+        </div>
+        <div className="form-row">
+          <div className="faction-field">
+            <label>Faction</label>
+            <input type="text" value={form.faction} onChange={e => set('faction', e.target.value)} placeholder="Faction id or name" />
+          </div>
+          <div className="faction-field">
+            <label>Disposition</label>
+            <select value={form.disposition} onChange={e => set('disposition', e.target.value)}
+              style={{ background: 'oklch(0.17 0.010 260)', border: '1px solid var(--demo-border)', borderRadius: 4, color: 'var(--demo-text)', padding: '7px 10px', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}>
+              <option value="ally">Ally</option>
+              <option value="neutral">Neutral</option>
+              <option value="ambiguous">Ambiguous</option>
+              <option value="hostile">Hostile</option>
+            </select>
+          </div>
+        </div>
+        <div className="faction-field">
+          <label>Quote</label>
+          <input type="text" value={form.quote} onChange={e => set('quote', e.target.value)} placeholder="Their defining line…" />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!form.name.trim()}>Add NPC</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── NPC Dossier detail view ────────────────────────────────────
+function NPCDossier({ npc, secrets, factions, onBack }) {
+  const [tagDraft, setTagDraft] = useState('');
+  const patch = (field, value) => window.Store.dispatch({ type: 'NPC_SET_FIELD', id: npc.id, field, value });
+
+  const linkedSecrets = secrets.filter(s => s.relates && s.relates.includes(npc.id));
+
+  const factionName = (() => {
+    const f = factions.find(f => f.id === npc.faction);
+    return f ? f.name : npc.faction || '—';
+  })();
+
+  function addTag(e) {
+    if ((e.key === 'Enter' || e.key === ',') && tagDraft.trim()) {
+      e.preventDefault();
+      const tag = tagDraft.trim().replace(/,$/, '');
+      if (!npc.tags.includes(tag)) patch('tags', [...(npc.tags || []), tag]);
+      setTagDraft('');
+    }
+  }
+
+  function removeTag(tag) {
+    patch('tags', (npc.tags || []).filter(t => t !== tag));
+  }
+
+  function autoGrow(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  return (
+    <div className="main-inner">
+      <div style={{ marginBottom: 20 }}>
+        <button className="dossier-back-btn" onClick={onBack}>
+          ← All Characters
+        </button>
+      </div>
+
+      <div className="dossier-layout">
+        <div className="dossier-portrait-col">
+          <div className="dossier-portrait" style={avatarStyle(npc.name)}>
+            {initials(npc.name)}
+          </div>
+
+          <div className="dossier-pills-col">
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--demo-muted)', marginBottom: 4 }}>Disposition</div>
+            <select
+              className="dossier-disp-select"
+              value={npc.disposition || 'neutral'}
+              onChange={e => patch('disposition', e.target.value)}
+            >
+              <option value="ally">Ally</option>
+              <option value="neutral">Neutral</option>
+              <option value="ambiguous">Ambiguous</option>
+              <option value="hostile">Hostile</option>
+            </select>
+
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--demo-muted)', marginTop: 10, marginBottom: 4 }}>Faction</div>
+            <input
+              className="dossier-input"
+              value={npc.faction || ''}
+              onChange={e => patch('faction', e.target.value)}
+              placeholder="Faction id…"
+              style={{ fontSize: 12 }}
+            />
+            {npc.faction && <div style={{ fontSize: 11, color: 'var(--demo-muted)', marginTop: 3 }}>{factionName}</div>}
+
+            <div style={{ marginTop: 16 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 12, color: 'var(--demo-muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!npc.likely}
+                  onChange={e => patch('likely', e.target.checked)}
+                  style={{ accentColor: 'oklch(0.72 0.090 85)' }}
+                />
+                Likely this session
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="dossier-content">
+          <div className="dossier-name-row">
+            <input
+              className="dossier-name-input"
+              value={npc.name || ''}
+              onChange={e => patch('name', e.target.value)}
+              placeholder="Name"
+            />
+            <input
+              className="dossier-title-input"
+              value={npc.title || ''}
+              onChange={e => patch('title', e.target.value)}
+              placeholder="Title or role…"
+            />
+          </div>
+
+          <div className="dossier-two-col">
+            <div className="dossier-field">
+              <div className="dossier-label">Wants</div>
+              <textarea
+                className="dossier-textarea"
+                value={npc.wants || ''}
+                onChange={e => { patch('wants', e.target.value); autoGrow(e.target); }}
+                ref={el => el && autoGrow(el)}
+                placeholder="What do they want above all else?"
+                rows={3}
+              />
+            </div>
+            <div className="dossier-field">
+              <div className="dossier-label">Fears</div>
+              <textarea
+                className="dossier-textarea"
+                value={npc.fears || ''}
+                onChange={e => { patch('fears', e.target.value); autoGrow(e.target); }}
+                ref={el => el && autoGrow(el)}
+                placeholder="What do they dread?"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="dossier-field">
+            <div className="dossier-label">Quote</div>
+            <input
+              className="dossier-input"
+              value={npc.quote || ''}
+              onChange={e => patch('quote', e.target.value)}
+              placeholder="Their defining line…"
+              style={{ fontFamily: 'var(--f-display)', fontStyle: 'italic' }}
+            />
+          </div>
+
+          <div className="dossier-two-col">
+            <div className="dossier-field">
+              <div className="dossier-label">Appearance</div>
+              <textarea
+                className="dossier-textarea"
+                value={npc.appearance || ''}
+                onChange={e => { patch('appearance', e.target.value); autoGrow(e.target); }}
+                ref={el => el && autoGrow(el)}
+                placeholder="How they look, dress, carry themselves…"
+                rows={3}
+              />
+            </div>
+            <div className="dossier-field">
+              <div className="dossier-label">Voice</div>
+              <textarea
+                className="dossier-textarea"
+                value={npc.voice || ''}
+                onChange={e => { patch('voice', e.target.value); autoGrow(e.target); }}
+                ref={el => el && autoGrow(el)}
+                placeholder="Speech patterns, accent, cadence…"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="dossier-field">
+            <div className="dossier-label">Location</div>
+            <input
+              className="dossier-input"
+              value={npc.location || ''}
+              onChange={e => patch('location', e.target.value)}
+              placeholder="Where are they usually found?"
+            />
+          </div>
+
+          <div className="dossier-field">
+            <div className="dossier-label">Bonds</div>
+            <textarea
+              className="dossier-textarea"
+              value={npc.bonds || ''}
+              onChange={e => { patch('bonds', e.target.value); autoGrow(e.target); }}
+              ref={el => el && autoGrow(el)}
+              placeholder="Relationships, debts, loyalties…"
+              rows={2}
+            />
+          </div>
+
+          <div className="dossier-field">
+            <div className="dossier-label" style={{ color: 'oklch(0.65 0.080 80)' }}>DM Note <span style={{ opacity: 0.6, textTransform: 'none', letterSpacing: 0, fontSize: 9, fontWeight: 400 }}>(private)</span></div>
+            <textarea
+              className="dossier-textarea dm-note"
+              value={npc.dmNote || ''}
+              onChange={e => { patch('dmNote', e.target.value); autoGrow(e.target); }}
+              ref={el => el && autoGrow(el)}
+              placeholder="Behind-the-screen notes — hidden from players…"
+              rows={2}
+            />
+          </div>
+
+          <div className="dossier-field">
+            <div className="dossier-label">Tags</div>
+            <div className="dossier-tags">
+              {(npc.tags || []).map(tag => (
+                <button key={tag} className="dossier-tag" onClick={() => removeTag(tag)} title="Click to remove">
+                  {tag} ×
+                </button>
+              ))}
+              <input
+                className="dossier-tag-add"
+                value={tagDraft}
+                onChange={e => setTagDraft(e.target.value)}
+                onKeyDown={addTag}
+                placeholder="+ tag"
+              />
+            </div>
+          </div>
+
+          {linkedSecrets.length > 0 && (
+            <div className="dossier-secrets-panel">
+              <div className="dossier-secrets-title">Linked Secrets ({linkedSecrets.length})</div>
+              {linkedSecrets.map(sec => (
+                <div key={sec.id} className="dossier-secret-row">
+                  <span className={`dossier-secret-badge ${sec.status}`}>{sec.status}</span>
+                  <span className="dossier-secret-title">{sec.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
+            <button className="btn-danger" onClick={() => {
+              if (window.confirm('Delete ' + npc.name + '? This cannot be undone.')) {
+                window.Store.dispatch({ type: 'NPC_REMOVE', id: npc.id });
+                onBack();
+              }
+            }}>Delete NPC</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Characters page (NPC dossier grid) ─────────────────────────
+function CharactersPage({ npcs, secrets, factions }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [adding, setAdding] = useState(false);
+
+  const selected = npcs.find(n => n.id === selectedId);
+
+  if (selected) {
+    return (
+      <NPCDossier
+        npc={selected}
+        secrets={secrets}
+        factions={factions}
+        onBack={() => setSelectedId(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Dramatis Personae</div>
+          <div className="page-title">Characters</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ New NPC'}
+        </button>
+      </div>
+
+      {adding && <AddNPCForm onClose={() => setAdding(false)} />}
+
+      {npcs.length === 0 && !adding ? (
+        <div className="npc-empty">
+          <span style={{ width: 36, height: 36, color: 'var(--demo-muted)', opacity: 0.3 }}>{D.characters}</span>
+          <h3>No characters yet</h3>
+          <p>Add the NPCs your players will encounter — allies, enemies, and everyone in between.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Add first NPC</button>
+        </div>
+      ) : (
+        <div className="npc-grid">
+          {npcs.map(npc => {
+            const factionName = (() => {
+              const f = factions.find(f => f.id === npc.faction);
+              return f ? f.name : npc.faction || '';
+            })();
+            return (
+              <div key={npc.id} className="npc-card" onClick={() => setSelectedId(npc.id)}>
+                <div className="npc-card-portrait" style={avatarStyle(npc.name)}>
+                  {initials(npc.name)}
+                  {npc.likely && <span className="npc-card-likely">this session</span>}
+                </div>
+                <div className="npc-card-body">
+                  <div className="npc-card-name">{npc.name}</div>
+                  {npc.title && <div className="npc-card-title">{npc.title}</div>}
+                  <div className="npc-card-pills">
+                    <span className={`npc-disp-pill ${npc.disposition || 'neutral'}`}>
+                      {npc.disposition || 'neutral'}
+                    </span>
+                    {factionName && (
+                      <span className="npc-faction-pill">{factionName}</span>
+                    )}
+                  </div>
+                  {npc.quote && <div className="npc-card-quote">"{npc.quote}"</div>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1707,14 +2083,15 @@ function DemoApp() {
       case 'dashboard':   return <DashboardPage state={state} onNav={navTo} />;
       case 'sessions':    return <SessionsPage sessions={state.sessions} startNew={sessionStartNew} />;
       case 'factions':    return <FactionsPage factions={state.factions} />;
-      case 'characters':  return <CharactersPage party={state.party} />;
+      case 'characters':  return <CharactersPage npcs={state.npcs} secrets={state.secrets} factions={state.factions} />;
+      case 'party':       return <PartyPage party={state.party} />;
       case 'secrets':     return <VaultPage secrets={state.secrets} state={state} />;
-      case 'rumors':      return <PlaceholderPage title="Rumors" icon={D.rumor} />;
-      case 'prep':        return <PlaceholderPage title="Prep" icon={D.prep} />;
-      case 'map':         return <PlaceholderPage title="Maps" icon={D.map} />;
-      case 'codex':       return <PlaceholderPage title="Codex" icon={D.codex} />;
-      case 'timeline':    return <PlaceholderPage title="Timeline" icon={D.timeline} />;
-      case 'settings':    return <PlaceholderPage title="Settings" icon={D.settings} />;
+      case 'rumors':      return <RumorsPage rumors={state.rumors} />;
+      case 'prep':        return <PrepPage prep={state.prep} />;
+      case 'map':         return <MapPage locations={state.locations} campaign={state.campaign} />;
+      case 'codex':       return <CodexPage codex={state.codex} />;
+      case 'timeline':    return <TimelinePage timeline={state.timeline} sessions={state.sessions} />;
+      case 'settings':    return <SettingsPage state={state} onNav={navTo} />;
       default:            return <DashboardPage state={state} onNav={navTo} />;
     }
   })();
