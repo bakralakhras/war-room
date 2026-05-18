@@ -797,6 +797,318 @@ body {
   line-height: 1.5;
 }
 
+/* ── Factions page ────────────────────────────────────────────── */
+.factions-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.factions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.faction-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  background: var(--demo-panel);
+  border: 1px solid var(--demo-border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.faction-card-item:hover { background: oklch(0.19 0.012 260); }
+
+.faction-card-item.active {
+  border-color: oklch(0.42 0.040 80);
+  background: oklch(0.18 0.018 260);
+}
+
+.faction-card-sigil {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: oklch(0.20 0.010 260);
+  border: 1px solid var(--demo-border);
+}
+
+.faction-card-info { flex: 1; min-width: 0; }
+
+.faction-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--demo-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.faction-card-clock-label {
+  font-size: 10px;
+  color: var(--demo-muted);
+  margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Faction detail panel ─────────────────────────────────────── */
+.faction-detail {
+  background: var(--demo-panel);
+  border: 1px solid var(--demo-border);
+  border-radius: 7px;
+  overflow: hidden;
+  position: sticky;
+  top: 24px;
+}
+
+.faction-detail-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--demo-border);
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.faction-detail-sigil {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: oklch(0.20 0.010 260);
+  border: 1px solid var(--demo-border);
+  flex-shrink: 0;
+}
+
+.faction-detail-name {
+  font-family: var(--f-display, 'Cormorant Garamond', serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: oklch(0.92 0.010 260);
+  line-height: 1.2;
+  flex: 1;
+}
+
+.faction-detail-name input {
+  font-family: inherit; font-size: inherit; font-weight: inherit;
+  color: inherit; background: transparent; border: none; outline: none;
+  width: 100%; border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.faction-detail-name input:focus { border-bottom-color: var(--brass, oklch(0.72 0.090 85)); }
+
+.faction-detail-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Clock section */
+.faction-clock-section {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 14px 16px;
+  background: oklch(0.14 0.010 260);
+  border-radius: 6px;
+  border: 1px solid var(--demo-border);
+}
+
+.faction-clock-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.faction-clock-controls label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--demo-muted);
+}
+
+.faction-clock-controls input {
+  background: oklch(0.18 0.010 260);
+  border: 1px solid var(--demo-border);
+  border-radius: 4px;
+  padding: 5px 9px;
+  color: var(--demo-text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+}
+
+.faction-clock-controls input:focus { border-color: var(--brass, oklch(0.72 0.090 85)); }
+
+.clock-progress-text {
+  font-family: var(--f-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--demo-muted);
+}
+
+/* Disposition selector */
+.disposition-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.disposition-row label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--demo-muted);
+}
+
+.disposition-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.disp-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--demo-border);
+  background: transparent;
+  color: var(--demo-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: capitalize;
+}
+
+.disp-btn:hover { border-color: oklch(0.38 0.010 260); color: var(--demo-dim); }
+
+.disp-btn.active-ally      { background: oklch(0.18 0.040 155); border-color: oklch(0.40 0.080 155); color: oklch(0.70 0.120 155); }
+.disp-btn.active-hostile   { background: oklch(0.18 0.040 20);  border-color: oklch(0.40 0.080 20);  color: oklch(0.70 0.120 20);  }
+.disp-btn.active-neutral   { background: oklch(0.18 0.010 260); border-color: oklch(0.38 0.012 260); color: var(--demo-dim); }
+.disp-btn.active-ambiguous { background: oklch(0.18 0.040 280); border-color: oklch(0.38 0.060 280); color: oklch(0.68 0.080 280); }
+
+/* Meta fields */
+.faction-meta { display: flex; flex-direction: column; gap: 10px; }
+
+.faction-field { display: flex; flex-direction: column; gap: 4px; }
+
+.faction-field label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--demo-muted);
+}
+
+.faction-field input,
+.faction-field textarea {
+  background: oklch(0.18 0.010 260);
+  border: 1px solid var(--demo-border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--demo-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.faction-field textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+
+.faction-field input:focus,
+.faction-field textarea:focus { border-color: var(--brass, oklch(0.72 0.090 85)); }
+
+.faction-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--demo-border);
+}
+
+.btn-danger {
+  padding: 6px 14px;
+  border-radius: 5px;
+  border: 1px solid oklch(0.30 0.060 20);
+  background: transparent;
+  color: oklch(0.55 0.100 20);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-danger:hover { background: oklch(0.18 0.040 20); border-color: oklch(0.40 0.080 20); color: oklch(0.65 0.120 20); }
+
+/* Add faction form */
+.add-faction-form {
+  background: var(--demo-panel);
+  border: 1px solid var(--demo-border);
+  border-radius: 7px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.add-faction-title {
+  font-size: 13px; font-weight: 600; color: var(--demo-text);
+  margin-bottom: 2px;
+}
+
+.form-row { display: flex; gap: 10px; }
+.form-row .faction-field { flex: 1; }
+
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+.btn-secondary {
+  padding: 7px 14px;
+  border-radius: 5px;
+  border: 1px solid var(--demo-border);
+  background: transparent;
+  color: var(--demo-muted);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover { color: var(--demo-text); border-color: oklch(0.35 0.010 260); }
+
+.btn-primary {
+  padding: 7px 14px;
+  border-radius: 5px;
+  border: none;
+  background: var(--brass, oklch(0.72 0.090 85));
+  color: oklch(0.10 0.010 260);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover { background: oklch(0.78 0.100 85); }
+.btn-primary:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Empty state (no factions yet) ───────────────────────────── */
+.factions-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  gap: 10px;
+  background: var(--demo-panel);
+  border: 1px solid var(--demo-border);
+  border-radius: 7px;
+}
+
+.factions-empty h3 {
+  font-family: var(--f-display, 'Cormorant Garamond', serif);
+  font-size: 20px; color: oklch(0.55 0.010 260);
+}
+
+.factions-empty p { font-size: 12px; color: var(--demo-muted); max-width: 280px; line-height: 1.5; }
+
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .dash-cols { grid-template-columns: 1fr; }

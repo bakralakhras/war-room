@@ -547,6 +547,311 @@ function DashboardPage({ state, onNav }) {
   );
 }
 
+// ── Faction color helpers ──────────────────────────────────────
+const FACTION_COLORS = {
+  iron:    { fg: 'oklch(0.68 0.025 240)', bg: 'oklch(0.20 0.018 240)' },
+  oxblood: { fg: 'oklch(0.62 0.090 15)',  bg: 'oklch(0.18 0.040 15)'  },
+  moon:    { fg: 'oklch(0.78 0.040 220)', bg: 'oklch(0.20 0.022 220)' },
+  ember:   { fg: 'oklch(0.72 0.110 60)',  bg: 'oklch(0.20 0.045 60)'  },
+  forest:  { fg: 'oklch(0.65 0.100 155)', bg: 'oklch(0.18 0.040 155)' },
+  brass:   { fg: 'oklch(0.72 0.090 85)',  bg: 'oklch(0.20 0.040 85)'  },
+};
+
+function factionColor(color) {
+  return FACTION_COLORS[color] || { fg: 'var(--demo-dim)', bg: 'oklch(0.20 0.010 260)' };
+}
+
+const DISPOSITIONS = ['ally', 'neutral', 'ambiguous', 'hostile'];
+
+// ── Add-Faction form ───────────────────────────────────────────
+function AddFactionForm({ onClose }) {
+  const [form, setForm] = useState({ name: '', ideology: '', leader: '', seat: '', segments: '6', color: 'iron', summary: '' });
+
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    window.Store.dispatch({
+      type: 'FACTION_ADD',
+      name: form.name.trim(),
+      ideology: form.ideology.trim(),
+      leader: form.leader.trim(),
+      seat: form.seat.trim(),
+      segments: parseInt(form.segments, 10) || 6,
+      color: form.color,
+      summary: form.summary.trim(),
+    });
+    onClose();
+  }
+
+  const colors = Object.keys(FACTION_COLORS);
+
+  return (
+    <div className="add-faction-form">
+      <div className="add-faction-title">New Faction</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="form-row">
+          <div className="faction-field">
+            <label>Name</label>
+            <input type="text" placeholder="Faction name" value={form.name} onChange={e => set('name', e.target.value)} autoFocus />
+          </div>
+          <div className="faction-field" style={{ maxWidth: 90 }}>
+            <label>Clock size</label>
+            <input type="number" min="2" max="12" value={form.segments} onChange={e => set('segments', e.target.value)} />
+          </div>
+        </div>
+        <div className="faction-field">
+          <label>Ideology</label>
+          <input type="text" placeholder="What do they believe?" value={form.ideology} onChange={e => set('ideology', e.target.value)} />
+        </div>
+        <div className="form-row">
+          <div className="faction-field">
+            <label>Leader</label>
+            <input type="text" placeholder="Leader name" value={form.leader} onChange={e => set('leader', e.target.value)} />
+          </div>
+          <div className="faction-field">
+            <label>Seat of power</label>
+            <input type="text" placeholder="Location" value={form.seat} onChange={e => set('seat', e.target.value)} />
+          </div>
+        </div>
+        <div className="faction-field">
+          <label>Colour</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {colors.map(c => {
+              const col = factionColor(c);
+              return (
+                <div
+                  key={c}
+                  onClick={() => set('color', c)}
+                  style={{
+                    width: 24, height: 24, borderRadius: '50%',
+                    background: col.fg,
+                    cursor: 'pointer',
+                    outline: form.color === c ? `2px solid ${col.fg}` : '2px solid transparent',
+                    outlineOffset: 2,
+                    transition: 'outline 0.12s',
+                  }}
+                  title={c}
+                />
+              );
+            })}
+          </div>
+        </div>
+        <div className="faction-field">
+          <label>Summary</label>
+          <textarea placeholder="Brief description of this faction…" value={form.summary} onChange={e => set('summary', e.target.value)} rows={2} />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!form.name.trim()}>Add Faction</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Faction detail panel ───────────────────────────────────────
+function FactionDetail({ faction }) {
+  const col = factionColor(faction.color);
+
+  function patch(field, value) {
+    window.Store.dispatch({ type: 'FACTION_SET_FIELD', id: faction.id, field, value });
+  }
+
+  function patchClock(field, value) {
+    const updated = { ...faction.clock, [field]: value };
+    window.Store.dispatch({ type: 'FACTION_SET_FIELD', id: faction.id, field: 'clock', value: updated });
+  }
+
+  function setDisposition(d) {
+    window.Store.dispatch({ type: 'FACTION_SET_DISPOSITION', id: faction.id, disposition: d });
+  }
+
+  function advanceClock(seg) {
+    const next = faction.clock.filled === seg + 1 ? seg : seg + 1;
+    window.Store.dispatch({ type: 'FACTION_CLOCK_SET', id: faction.id, filled: next });
+  }
+
+  function remove() {
+    if (window.confirm('Remove ' + faction.name + '? This cannot be undone.')) {
+      window.Store.dispatch({ type: 'FACTION_REMOVE', id: faction.id });
+    }
+  }
+
+  return (
+    <div className="faction-detail">
+      <div className="faction-detail-header">
+        <div className="faction-detail-sigil" style={{ background: col.bg, borderColor: col.fg + '44' }}>
+          <Sigil kind={faction.sigil} size={28} color={col.fg} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="faction-detail-name">
+            <input
+              value={faction.name}
+              onChange={e => patch('name', e.target.value)}
+              placeholder="Faction name"
+            />
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <DispPill d={faction.disposition} />
+          </div>
+        </div>
+      </div>
+
+      <div className="faction-detail-body">
+
+        {/* Clock */}
+        <div className="faction-clock-section">
+          <FactionClock
+            segments={faction.clock.segments}
+            filled={faction.clock.filled}
+            size={80}
+            color={faction.color}
+            label=""
+            onSegmentClick={advanceClock}
+          />
+          <div className="faction-clock-controls">
+            <label>Clock — {faction.clock.label || 'untitled'}</label>
+            <input
+              type="text"
+              value={faction.clock.label || ''}
+              onChange={e => patchClock('label', e.target.value)}
+              placeholder="Clock label…"
+            />
+            <span className="clock-progress-text">
+              {faction.clock.filled} / {faction.clock.segments} segments filled
+            </span>
+            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+              <button
+                className="btn-secondary"
+                style={{ fontSize: 11, padding: '3px 10px' }}
+                onClick={() => window.Store.dispatch({ type: 'FACTION_CLOCK_SET', id: faction.id, filled: Math.max(0, faction.clock.filled - 1) })}
+              >− Back</button>
+              <button
+                className="btn-secondary"
+                style={{ fontSize: 11, padding: '3px 10px' }}
+                onClick={() => window.Store.dispatch({ type: 'FACTION_CLOCK_SET', id: faction.id, filled: Math.min(faction.clock.segments, faction.clock.filled + 1) })}
+              >+ Advance</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Disposition */}
+        <div className="disposition-row">
+          <label>Disposition</label>
+          <div className="disposition-pills">
+            {DISPOSITIONS.map(d => (
+              <button
+                key={d}
+                className={`disp-btn${faction.disposition === d ? ' active-' + d : ''}`}
+                onClick={() => setDisposition(d)}
+              >{d}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Meta fields */}
+        <div className="faction-meta">
+          <div className="faction-field">
+            <label>Ideology</label>
+            <input value={faction.ideology || ''} onChange={e => patch('ideology', e.target.value)} placeholder="What do they believe?" />
+          </div>
+          <div className="form-row">
+            <div className="faction-field">
+              <label>Leader</label>
+              <input value={faction.leader || ''} onChange={e => patch('leader', e.target.value)} placeholder="Name" />
+            </div>
+            <div className="faction-field">
+              <label>Seat of power</label>
+              <input value={faction.seat || ''} onChange={e => patch('seat', e.target.value)} placeholder="Location" />
+            </div>
+          </div>
+          <div className="faction-field">
+            <label>Summary</label>
+            <textarea value={faction.summary || ''} onChange={e => patch('summary', e.target.value)} placeholder="Describe this faction…" />
+          </div>
+        </div>
+      </div>
+
+      <div className="faction-detail-actions">
+        <button className="btn-danger" onClick={remove}>Remove faction</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Factions page ──────────────────────────────────────────────
+function FactionsPage({ factions }) {
+  const [selectedId, setSelectedId] = useState(factions[0]?.id || null);
+  const [adding, setAdding] = useState(false);
+
+  // If the selected faction was deleted, fall back to first
+  const selected = factions.find(f => f.id === selectedId) || factions[0] || null;
+
+  // Auto-select first faction when one is added
+  useEffect(() => {
+    if (factions.length && !selected) setSelectedId(factions[0].id);
+  }, [factions.length]);
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Power & Conflict</div>
+          <div className="page-title">Factions</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ Add Faction'}
+        </button>
+      </div>
+
+      {factions.length === 0 && !adding ? (
+        <div className="factions-empty">
+          <span style={{ width: 36, height: 36, color: 'var(--demo-muted)', opacity: 0.3 }}>{D.factions}</span>
+          <h3>No factions yet</h3>
+          <p>Add the powers at play in your campaign — guilds, courts, cults, armies.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Add your first faction</button>
+        </div>
+      ) : (
+        <div className="factions-layout">
+          <div>
+            {adding && <AddFactionForm onClose={() => setAdding(false)} />}
+            <div className="factions-list">
+              {factions.map(f => {
+                const col = factionColor(f.color);
+                return (
+                  <div
+                    key={f.id}
+                    className={`faction-card-item${selected?.id === f.id ? ' active' : ''}`}
+                    onClick={() => setSelectedId(f.id)}
+                  >
+                    <div className="faction-card-sigil" style={{ background: col.bg, borderColor: col.fg + '44' }}>
+                      <Sigil kind={f.sigil} size={18} color={col.fg} />
+                    </div>
+                    <div className="faction-card-info">
+                      <div className="faction-card-name">{f.name}</div>
+                      <div className="faction-card-clock-label">{f.clock.label || 'No clock label'}</div>
+                    </div>
+                    <FactionClock
+                      segments={f.clock.segments}
+                      filled={f.clock.filled}
+                      size={32}
+                      color={f.color}
+                      label=""
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {selected && <FactionDetail key={selected.id} faction={selected} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Placeholder ────────────────────────────────────────────────
 function PlaceholderPage({ title, icon }) {
   return (
@@ -577,7 +882,7 @@ function DemoApp() {
     switch (page) {
       case 'dashboard':   return <DashboardPage state={state} onNav={setPage} />;
       case 'sessions':    return <PlaceholderPage title="Sessions" icon={D.sessions} />;
-      case 'factions':    return <PlaceholderPage title="Factions" icon={D.factions} />;
+      case 'factions':    return <FactionsPage factions={state.factions} />;
       case 'characters':  return <PlaceholderPage title="Characters" icon={D.characters} />;
       case 'secrets':     return <PlaceholderPage title="The Vault" icon={D.secrets} />;
       case 'rumors':      return <PlaceholderPage title="Rumors" icon={D.rumor} />;
