@@ -852,6 +852,265 @@ function FactionsPage({ factions }) {
   );
 }
 
+// ── Character helpers ──────────────────────────────────────────
+function hpStatus(pct) {
+  if (pct <= 25) return 'crit';
+  if (pct <= 50) return 'low';
+  return '';
+}
+
+function hpColor(pct) {
+  if (pct <= 25) return 'oklch(0.62 0.160 15)';
+  if (pct <= 50) return 'oklch(0.65 0.150 30)';
+  return 'oklch(0.65 0.130 155)';
+}
+
+// ── Add character form ─────────────────────────────────────────
+function AddCharacterForm({ onClose }) {
+  const [form, setForm] = useState({ name: '', role: '', patron: '', curHp: '20', maxHp: '20', note: '' });
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    window.Store.dispatch({
+      type: 'PARTY_ADD',
+      name: form.name.trim(),
+      role: form.role.trim(),
+      patron: form.patron.trim() || '—',
+      hp: (parseInt(form.curHp, 10) || 20) + '/' + (parseInt(form.maxHp, 10) || 20),
+      note: form.note.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <div className="new-session-form">
+      <div className="new-session-label">New Character</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="faction-field">
+          <label>Name</label>
+          <input type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Character name" autoFocus />
+        </div>
+        <div className="form-row">
+          <div className="faction-field">
+            <label>Class / Role</label>
+            <input type="text" value={form.role} onChange={e => set('role', e.target.value)} placeholder="e.g. Half-elf Warlock" />
+          </div>
+          <div className="faction-field">
+            <label>Patron / Affiliation</label>
+            <input type="text" value={form.patron} onChange={e => set('patron', e.target.value)} placeholder="Optional" />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="faction-field" style={{ maxWidth: 80 }}>
+            <label>Current HP</label>
+            <input type="number" min="0" value={form.curHp} onChange={e => set('curHp', e.target.value)} />
+          </div>
+          <div className="faction-field" style={{ maxWidth: 80 }}>
+            <label>Max HP</label>
+            <input type="number" min="1" value={form.maxHp} onChange={e => set('maxHp', e.target.value)} />
+          </div>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!form.name.trim()}>Add character</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Character detail ───────────────────────────────────────────
+function CharacterDetail({ pc }) {
+  const { cur, max } = parseHP(pc.hp);
+  const pct = Math.round((cur / max) * 100);
+
+  function setCur(val) {
+    const n = Math.max(0, Math.min(parseInt(val, 10) || 0, max));
+    window.Store.dispatch({ type: 'PARTY_SET_HP', name: pc.name, cur: n, max });
+  }
+
+  function setMax(val) {
+    const m = Math.max(1, parseInt(val, 10) || 1);
+    const c = Math.min(cur, m);
+    window.Store.dispatch({ type: 'PARTY_SET_HP', name: pc.name, cur: c, max: m });
+  }
+
+  function adjust(delta) { setCur(cur + delta); }
+
+  function patch(field, value) {
+    window.Store.dispatch({ type: 'PARTY_SET_FIELD', name: pc.name, field, value });
+  }
+
+  function remove() {
+    if (window.confirm('Remove ' + pc.name + ' from the party?')) {
+      window.Store.dispatch({ type: 'PARTY_REMOVE', name: pc.name });
+    }
+  }
+
+  return (
+    <div className="char-detail">
+      <div className="char-detail-header">
+        <div className="char-detail-avatar" style={{ background: AV_CLASSES_BG[AV_CLASSES.indexOf(AV_CLASSES[0])], ...avatarStyle(pc.name) }}>
+          {initials(pc.name)}
+        </div>
+        <div style={{ flex: 1 }}>
+          <input
+            className="char-detail-name"
+            value={pc.name}
+            onChange={e => patch('name', e.target.value)}
+            placeholder="Character name"
+          />
+          <input
+            className="char-detail-role"
+            value={pc.role || ''}
+            onChange={e => patch('role', e.target.value)}
+            placeholder="Class / Role"
+          />
+        </div>
+      </div>
+
+      <div className="hp-tracker">
+        <div className="hp-tracker-label">Hit Points</div>
+        <div className="hp-bar-large">
+          <div
+            className={`hp-bar-large-fill ${hpStatus(pct)}`}
+            style={{ width: Math.max(0, pct) + '%' }}
+          />
+        </div>
+        <div className="hp-controls">
+          <button className="hp-btn" onClick={() => adjust(-1)}>−</button>
+          <button className="hp-btn" onClick={() => adjust(-5)} style={{ fontSize: 11 }}>−5</button>
+          <div className="hp-display">
+            <input
+              className="hp-current"
+              style={{ color: hpColor(pct) }}
+              type="number"
+              value={cur}
+              min={0}
+              max={max}
+              onChange={e => setCur(e.target.value)}
+            />
+            <div className="hp-max-row">
+              / <input
+                className="hp-max-input"
+                type="number"
+                value={max}
+                min={1}
+                onChange={e => setMax(e.target.value)}
+              /> max
+            </div>
+          </div>
+          <button className="hp-btn" onClick={() => adjust(5)} style={{ fontSize: 11 }}>+5</button>
+          <button className="hp-btn" onClick={() => adjust(1)}>+</button>
+        </div>
+        <button className="hp-full-btn" onClick={() => setCur(max)}>
+          Full heal
+        </button>
+      </div>
+
+      <div className="char-meta">
+        <div className="faction-field">
+          <label>Patron / Affiliation</label>
+          <input value={pc.patron || '—'} onChange={e => patch('patron', e.target.value)} placeholder="—" />
+        </div>
+        <div className="faction-field">
+          <label>Notes</label>
+          <textarea value={pc.note || ''} onChange={e => patch('note', e.target.value)} placeholder="Character notes, debts, conditions…" rows={3} />
+        </div>
+      </div>
+
+      <div className="char-detail-actions">
+        <button className="btn-danger" onClick={remove}>Remove character</button>
+      </div>
+    </div>
+  );
+}
+
+// Avatar style helper — deterministic color per name
+function avatarStyle(name) {
+  const hues = [300, 230, 20, 155, 270, 50];
+  const h = hues[(name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % hues.length];
+  return {
+    background: `oklch(0.22 0.055 ${h})`,
+    color: `oklch(0.75 0.075 ${h})`,
+  };
+}
+const AV_CLASSES_BG = [];
+
+// ── Characters page ────────────────────────────────────────────
+function CharactersPage({ party }) {
+  const [selectedName, setSelectedName] = useState(party[0]?.name || null);
+  const [adding, setAdding] = useState(false);
+
+  const prevLen = useRef(party.length);
+  useEffect(() => {
+    if (party.length > prevLen.current) setSelectedName(party[party.length - 1]?.name);
+    if (party.length === 0) setSelectedName(null);
+    prevLen.current = party.length;
+  }, [party.length]);
+
+  const selected = party.find(p => p.name === selectedName) || party[0] || null;
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">The Party</div>
+          <div className="page-title">Characters</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ Add Character'}
+        </button>
+      </div>
+
+      {party.length === 0 && !adding ? (
+        <div className="characters-empty">
+          <span style={{ width: 36, height: 36, color: 'var(--demo-muted)', opacity: 0.3 }}>{D.characters}</span>
+          <h3>No party members yet</h3>
+          <p>Add your players' characters to track HP and notes mid-session.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>Add first character</button>
+        </div>
+      ) : (
+        <div className="characters-layout">
+          <div>
+            {adding && <AddCharacterForm onClose={() => setAdding(false)} />}
+            <div className="characters-list">
+              {party.map(pc => {
+                const { cur, max } = parseHP(pc.hp);
+                const pct = Math.round((cur / max) * 100);
+                return (
+                  <div
+                    key={pc.name}
+                    className={`character-item${selected?.name === pc.name ? ' active' : ''}`}
+                    onClick={() => setSelectedName(pc.name)}
+                  >
+                    <div className="char-avatar" style={avatarStyle(pc.name)}>
+                      {initials(pc.name)}
+                    </div>
+                    <div className="char-info">
+                      <div className="char-name">{pc.name}</div>
+                      <div className="char-role">{pc.role}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <div className="char-hp-mini" style={{ color: hpColor(pct) }}>{cur}/{max}</div>
+                      <div style={{ width: 44, height: 3, background: 'oklch(0.22 0.010 260)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: pct + '%', background: hpColor(pct), borderRadius: 2, transition: 'width 0.2s' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {selected && <CharacterDetail key={selected.name} pc={selected} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Session helpers ────────────────────────────────────────────
 function formatDate(iso) {
   if (!iso) return null;
@@ -1131,7 +1390,7 @@ function DemoApp() {
       case 'dashboard':   return <DashboardPage state={state} onNav={navTo} />;
       case 'sessions':    return <SessionsPage sessions={state.sessions} startNew={sessionStartNew} />;
       case 'factions':    return <FactionsPage factions={state.factions} />;
-      case 'characters':  return <PlaceholderPage title="Characters" icon={D.characters} />;
+      case 'characters':  return <CharactersPage party={state.party} />;
       case 'secrets':     return <PlaceholderPage title="The Vault" icon={D.secrets} />;
       case 'rumors':      return <PlaceholderPage title="Rumors" icon={D.rumor} />;
       case 'prep':        return <PlaceholderPage title="Prep" icon={D.prep} />;
