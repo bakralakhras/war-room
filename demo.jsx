@@ -248,7 +248,7 @@ function OnboardingOverlay() {
 }
 
 // ── Topbar ─────────────────────────────────────────────────────
-function Topbar({ state, onNav }) {
+function Topbar({ state, onNav, onNewSession }) {
   const user = window.Auth.session;
   const initials = user
     ? user.displayName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -281,7 +281,7 @@ function Topbar({ state, onNav }) {
           </svg>
           Search
         </button>
-        <button className="topbar-btn primary" onClick={() => onNav('sessions')}>
+        <button className="topbar-btn primary" onClick={onNewSession}>
           + New Session
         </button>
         {user && (
@@ -852,6 +852,243 @@ function FactionsPage({ factions }) {
   );
 }
 
+// ── Session helpers ────────────────────────────────────────────
+function formatDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function autoResize(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ── New session form ───────────────────────────────────────────
+function NewSessionForm({ sessions, onClose, onCreated }) {
+  const nextNum = sessions.length
+    ? Math.max(...sessions.map(s => s.number || 0)) + 1
+    : 1;
+  const [title, setTitle] = useState('Session ' + nextNum);
+  const [note, setNote] = useState('');
+
+  function submit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    window.Store.dispatch({
+      type: 'SESSION_ADD',
+      number: nextNum,
+      title: title.trim(),
+      bullets: note.trim() ? [note.trim()] : [],
+    });
+    onClose();
+    onCreated && onCreated();
+  }
+
+  return (
+    <div className="new-session-form">
+      <div className="new-session-label">New Session</div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="faction-field">
+          <label>Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            autoFocus
+            placeholder="Session title…"
+          />
+        </div>
+        <div className="faction-field">
+          <label>Opening note <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+          <input
+            type="text"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="First bullet point…"
+          />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!title.trim()}>Create session</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Session detail ─────────────────────────────────────────────
+function SessionDetail({ session }) {
+  const [bulletDraft, setBulletDraft] = useState('');
+  const inputRef = useRef(null);
+
+  function setTitle(v) {
+    window.Store.dispatch({ type: 'SESSION_SET_FIELD', id: session.id, field: 'title', value: v });
+  }
+
+  function addBullet(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const text = bulletDraft.trim();
+    if (!text) return;
+    window.Store.dispatch({ type: 'SESSION_ADD_BULLET', id: session.id, text });
+    setBulletDraft('');
+  }
+
+  function removeBullet(index) {
+    window.Store.dispatch({ type: 'SESSION_REMOVE_BULLET', id: session.id, index });
+  }
+
+  function editBullet(index, value) {
+    const bullets = session.bullets.map((b, i) => i === index ? value : b);
+    window.Store.dispatch({ type: 'SESSION_SET_FIELD', id: session.id, field: 'bullets', value: bullets });
+  }
+
+  function deleteSession() {
+    if (window.confirm('Delete "' + session.title + '"? This cannot be undone.')) {
+      window.Store.dispatch({ type: 'SESSION_REMOVE', id: session.id });
+    }
+  }
+
+  return (
+    <div className="session-detail">
+      <div className="session-detail-header">
+        <div className="session-detail-num">Session {session.number}</div>
+        <input
+          className="session-detail-title"
+          value={session.title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Session title…"
+        />
+        {session.createdAt && (
+          <div className="session-detail-date">{formatDate(session.createdAt)}</div>
+        )}
+      </div>
+
+      <div className="session-bullets">
+        {session.bullets.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--demo-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+            No notes yet — add the first bullet below.
+          </div>
+        )}
+        {session.bullets.map((b, i) => (
+          <div className="session-bullet" key={i}>
+            <span className="bullet-dash">—</span>
+            <textarea
+              className="bullet-text"
+              value={b}
+              rows={1}
+              onChange={e => {
+                autoResize(e.target);
+                editBullet(i, e.target.value);
+              }}
+              onFocus={e => autoResize(e.target)}
+              ref={el => el && autoResize(el)}
+            />
+            <button className="bullet-remove" onClick={() => removeBullet(i)} title="Remove">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M1 1l8 8M9 1L1 9"/>
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="add-bullet-row">
+        <span style={{ color: 'var(--demo-muted)', fontSize: 13, flexShrink: 0 }}>—</span>
+        <input
+          ref={inputRef}
+          className="add-bullet-input"
+          value={bulletDraft}
+          onChange={e => setBulletDraft(e.target.value)}
+          onKeyDown={addBullet}
+          placeholder="Add a note…"
+        />
+        <span className="add-bullet-hint">↵ enter</span>
+      </div>
+
+      <div className="session-detail-actions">
+        <button className="btn-danger" onClick={deleteSession}>Delete session</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Sessions page ──────────────────────────────────────────────
+function SessionsPage({ sessions, startNew }) {
+  const [selectedId, setSelectedId] = useState(sessions[0]?.id || null);
+  const [adding, setAdding] = useState(startNew);
+
+  // When a new session is dispatched it'll be first in the list — select it
+  const prevLen = useRef(sessions.length);
+  useEffect(() => {
+    if (sessions.length > prevLen.current && sessions[0]) {
+      setSelectedId(sessions[0].id);
+    }
+    prevLen.current = sessions.length;
+  }, [sessions.length]);
+
+  // If selected was deleted, fall back
+  const selected = sessions.find(s => s.id === selectedId) || sessions[0] || null;
+
+  return (
+    <div className="main-inner">
+      <div className="page-header">
+        <div className="page-header-text">
+          <div className="page-eyebrow">Campaign Chronicle</div>
+          <div className="page-title">Sessions</div>
+        </div>
+        <button className="btn-primary" onClick={() => setAdding(a => !a)}>
+          {adding ? 'Cancel' : '+ New Session'}
+        </button>
+      </div>
+
+      {sessions.length === 0 && !adding ? (
+        <div className="sessions-empty">
+          <span style={{ width: 36, height: 36, color: 'var(--demo-muted)', opacity: 0.3 }}>{D.sessions}</span>
+          <h3>No sessions recorded</h3>
+          <p>Start logging your sessions to build a chronicle of the campaign.</p>
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => setAdding(true)}>
+            Record first session
+          </button>
+        </div>
+      ) : (
+        <div className="sessions-layout">
+          <div>
+            {adding && (
+              <NewSessionForm
+                sessions={sessions}
+                onClose={() => setAdding(false)}
+                onCreated={() => setAdding(false)}
+              />
+            )}
+            <div className="sessions-list">
+              {sessions.map(s => (
+                <div
+                  key={s.id}
+                  className={`session-item${selected?.id === s.id ? ' active' : ''}`}
+                  onClick={() => setSelectedId(s.id)}
+                >
+                  <span className="session-num">#{s.number}</span>
+                  <div className="session-item-info">
+                    <div className="session-item-title">{s.title}</div>
+                    <div className="session-item-meta">
+                      {s.bullets.length} note{s.bullets.length !== 1 ? 's' : ''}
+                      {s.createdAt ? ' · ' + formatDate(s.createdAt) : ''}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {selected && <SessionDetail key={selected.id} session={selected} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Placeholder ────────────────────────────────────────────────
 function PlaceholderPage({ title, icon }) {
   return (
@@ -876,12 +1113,23 @@ function PlaceholderPage({ title, icon }) {
 function DemoApp() {
   const state = useStore();
   const [page, setPage] = useState('dashboard');
+  const [sessionStartNew, setSessionStartNew] = useState(false);
   const isNew = state._new;
+
+  function navTo(p) {
+    setPage(p);
+    setSessionStartNew(false);
+  }
+
+  function openNewSession() {
+    setPage('sessions');
+    setSessionStartNew(true);
+  }
 
   const content = (() => {
     switch (page) {
-      case 'dashboard':   return <DashboardPage state={state} onNav={setPage} />;
-      case 'sessions':    return <PlaceholderPage title="Sessions" icon={D.sessions} />;
+      case 'dashboard':   return <DashboardPage state={state} onNav={navTo} />;
+      case 'sessions':    return <SessionsPage sessions={state.sessions} startNew={sessionStartNew} />;
       case 'factions':    return <FactionsPage factions={state.factions} />;
       case 'characters':  return <PlaceholderPage title="Characters" icon={D.characters} />;
       case 'secrets':     return <PlaceholderPage title="The Vault" icon={D.secrets} />;
@@ -891,15 +1139,15 @@ function DemoApp() {
       case 'codex':       return <PlaceholderPage title="Codex" icon={D.codex} />;
       case 'timeline':    return <PlaceholderPage title="Timeline" icon={D.timeline} />;
       case 'settings':    return <PlaceholderPage title="Settings" icon={D.settings} />;
-      default:            return <DashboardPage state={state} onNav={setPage} />;
+      default:            return <DashboardPage state={state} onNav={navTo} />;
     }
   })();
 
   return (
     <div className="app-shell">
       {isNew && <OnboardingOverlay />}
-      <Topbar state={state} onNav={setPage} />
-      <Sidebar active={page} onNav={setPage} state={state} />
+      <Topbar state={state} onNav={navTo} onNewSession={openNewSession} />
+      <Sidebar active={page} onNav={navTo} state={state} />
       <main className="app-main">{content}</main>
     </div>
   );
