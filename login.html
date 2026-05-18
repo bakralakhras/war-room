@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War Room — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="login.css" />
+  <script src="auth.js"></script>
+</head>
+<body>
+
+<div class="auth-wrap">
+
+  <!-- Brand -->
+  <div class="auth-brand">
+    <div class="auth-brand-icon">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M12 2L3 8v8l9 6 9-6V8L12 2Z"/>
+        <path d="M12 2v14M3 8l9 6 9-6"/>
+      </svg>
+    </div>
+    <div class="auth-brand-name">War Room</div>
+    <div class="auth-brand-sub">For Dungeon Masters only.</div>
+  </div>
+
+  <!-- Card -->
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</div>
+      <div class="auth-tab"        id="tab-register" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <!-- Login form -->
+    <form class="auth-form" id="form-login" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label for="login-username">Username</label>
+        <input id="login-username" type="text" placeholder="your username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div class="auth-msg" id="login-msg"></div>
+      <button class="auth-submit" type="submit" id="login-btn">Enter the War Room</button>
+    </form>
+
+    <!-- Register form -->
+    <form class="auth-form auth-hidden" id="form-register" onsubmit="handleRegister(event)">
+      <div class="field">
+        <label for="reg-username">Username</label>
+        <input id="reg-username" type="text" placeholder="choose a username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="reg-display">Display name <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <input id="reg-display" type="text" placeholder="how you appear in the War Room" />
+      </div>
+      <div class="field">
+        <label for="reg-password">Password</label>
+        <input id="reg-password" type="password" placeholder="min. 6 characters" autocomplete="new-password" />
+      </div>
+      <div class="auth-msg" id="register-msg"></div>
+      <button class="auth-submit" type="submit" id="register-btn">Create account</button>
+    </form>
+
+    <div class="auth-footer">
+      <span class="auth-footer-dot"></span>
+      By entering, you swear to keep what is written here sealed.
+      <span class="auth-footer-dot"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Redirect if already logged in
+  if (window.Auth.session) {
+    window.location.href = 'demo.html';
+  }
+
+  function switchTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('tab-login').classList.toggle('active', isLogin);
+    document.getElementById('tab-register').classList.toggle('active', !isLogin);
+    document.getElementById('form-login').classList.toggle('auth-hidden', !isLogin);
+    document.getElementById('form-register').classList.toggle('auth-hidden', isLogin);
+    clearMsg();
+  }
+
+  function showMsg(id, text, type = 'error') {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'auth-msg ' + type;
+  }
+
+  function clearMsg() {
+    ['login-msg', 'register-msg'].forEach(id => {
+      const el = document.getElementById(id);
+      el.textContent = '';
+      el.className = 'auth-msg';
+    });
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.textContent = 'Entering…';
+    clearMsg();
+
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!username || !password) {
+      showMsg('login-msg', 'Please fill in both fields.');
+      btn.disabled = false;
+      btn.textContent = 'Enter the War Room';
+      return;
+    }
+
+    const result = await window.Auth.login(username, password);
+    if (result.ok) {
+      window.location.href = 'demo.html';
+    } else {
+      showMsg('login-msg', result.error);
+      btn.disabled = false;
+      btn.textContent = 'Enter the War Room';
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('register-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    clearMsg();
+
+    const username    = document.getElementById('reg-username').value.trim();
+    const displayName = document.getElementById('reg-display').value.trim();
+    const password    = document.getElementById('reg-password').value;
+
+    const result = await window.Auth.register(username, password, displayName);
+    if (result.ok) {
+      window.location.href = 'demo.html';
+    } else {
+      showMsg('register-msg', result.error);
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+    }
+  }
+</script>
+
+</body>
+</html>

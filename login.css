@@ -1,0 +1,250 @@
+/* ── War Room Login / Register ───────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --void:   oklch(0.09 0.012 265);
+  --brass:  oklch(0.72 0.090 85);
+  --amber:  oklch(0.76 0.130 75);
+  --stone:  oklch(0.22 0.012 260);
+  --border: oklch(0.28 0.012 260);
+  --text:   oklch(0.88 0.010 260);
+  --dim:    oklch(0.58 0.010 260);
+  --muted:  oklch(0.38 0.010 260);
+  --error:  oklch(0.60 0.160 22);
+  --f-display: 'Cormorant Garamond', Georgia, serif;
+  --f-ui:      'Inter', system-ui, sans-serif;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--void);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  color: var(--text);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Atmospheric background vignette */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%,   oklch(0.16 0.025 270 / 0.5) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 20% 100%, oklch(0.14 0.030 50  / 0.3) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ── Auth card ────────────────────────────────────────────────── */
+.auth-wrap {
+  width: 100%;
+  max-width: 400px;
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.auth-brand-icon {
+  color: var(--brass);
+  opacity: 0.9;
+}
+
+.auth-brand-name {
+  font-family: var(--f-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--brass);
+}
+
+.auth-brand-sub {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-top: -6px;
+}
+
+.auth-card {
+  background: oklch(0.13 0.012 260);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-tab {
+  padding: 14px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.auth-tab:hover { color: var(--dim); background: oklch(0.16 0.010 260); }
+
+.auth-tab.active {
+  color: var(--brass);
+  background: oklch(0.16 0.015 260);
+  border-bottom: 2px solid var(--brass);
+  margin-bottom: -1px;
+}
+
+/* ── Form ─────────────────────────────────────────────────────── */
+.auth-form {
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-hidden { display: none; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 13px;
+  background: oklch(0.17 0.010 260);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.field input::placeholder { color: var(--muted); }
+
+.field input:focus {
+  border-color: var(--brass);
+  background: oklch(0.18 0.012 260);
+}
+
+/* ── Submit button ────────────────────────────────────────────── */
+.auth-submit {
+  width: 100%;
+  padding: 12px;
+  margin-top: 4px;
+  background: var(--brass);
+  border: none;
+  border-radius: 6px;
+  color: oklch(0.10 0.010 260);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.auth-submit:hover { background: oklch(0.78 0.100 85); }
+.auth-submit:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Error / info messages ────────────────────────────────────── */
+.auth-msg {
+  font-size: 12px;
+  padding: 9px 12px;
+  border-radius: 5px;
+  display: none;
+}
+
+.auth-msg.error {
+  display: block;
+  background: oklch(0.17 0.030 22);
+  border: 1px solid oklch(0.35 0.080 22);
+  color: var(--error);
+}
+
+.auth-msg.info {
+  display: block;
+  background: oklch(0.17 0.020 155);
+  border: 1px solid oklch(0.35 0.060 155);
+  color: oklch(0.70 0.100 155);
+}
+
+/* ── Premium badge on login ───────────────────────────────────── */
+.auth-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.auth-footer-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+/* ── Onboarding overlay (campaign setup) ──────────────────────── */
+.onboard-overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0.09 0.012 265 / 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.onboard-card {
+  background: oklch(0.13 0.012 260);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onboard-title {
+  font-family: var(--f-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: oklch(0.92 0.010 260);
+}
+
+.onboard-sub {
+  font-size: 13px;
+  color: var(--dim);
+  margin-top: -12px;
+  line-height: 1.5;
+}
