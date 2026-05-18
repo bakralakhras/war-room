@@ -430,9 +430,13 @@ const CODEX_TYPES = [
   { id: 'note',      label: 'Note',      hue: 260 },
 ];
 
-const MENTION_KIND_LABEL = {
-  npc: 'NPC', faction: 'Faction', location: 'Location',
-  secret: 'Secret', rumor: 'Rumor',
+const MENTION_KIND_META = {
+  npc:      { label: 'NPC',      hue: 300, page: 'characters' },
+  pc:       { label: 'Player',   hue: 155, page: 'party'      },
+  faction:  { label: 'Faction',  hue: 80,  page: 'factions'   },
+  location: { label: 'Location', hue: 180, page: 'map'        },
+  secret:   { label: 'Secret',   hue: 270, page: 'secrets'    },
+  rumor:    { label: 'Rumor',    hue: 30,  page: 'rumors'     },
 };
 
 function codexTypeStyle(typeId) {
@@ -446,11 +450,12 @@ function codexTypeStyle(typeId) {
 
 function getAllEntities(state) {
   const out = [];
+  (state.party || []).forEach(p => out.push({ id: 'pc-' + p.name, name: p.name, kind: 'pc', sub: p.role || '' }));
   (state.npcs || []).forEach(n => out.push({ id: n.id, name: n.name, kind: 'npc', sub: n.title || '' }));
   (state.factions || []).forEach(f => out.push({ id: f.id, name: f.name, kind: 'faction', sub: '' }));
   (state.locations || []).forEach(l => out.push({ id: l.id, name: l.name || l.label, kind: 'location', sub: l.kind || '' }));
   (state.secrets || []).forEach(s => out.push({ id: s.id, name: s.title, kind: 'secret', sub: s.weight || '' }));
-  (state.rumors || []).forEach(r => out.push({ id: r.id, name: (r.text || '').slice(0, 50) + (r.text && r.text.length > 50 ? '…' : ''), kind: 'rumor', sub: r.source || '' }));
+  (state.rumors || []).forEach(r => out.push({ id: r.id, name: (r.text || '').slice(0, 48) + ((r.text || '').length > 48 ? '…' : ''), kind: 'rumor', sub: r.source || '' }));
   return out;
 }
 
@@ -460,6 +465,49 @@ function parseMentions(body) {
   let m;
   while ((m = re.exec(body || '')) !== null) links.push({ name: m[1], id: m[2] });
   return links;
+}
+
+// Render body text with @[Name](id) as styled chips
+function renderBodyWithMentions(text, allEntities, onNav) {
+  const re = /@\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts = [];
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', content: text.slice(last, m.index) });
+    const entity = allEntities.find(e => e.id === m[2]);
+    parts.push({ type: 'mention', name: m[1], id: m[2], kind: entity?.kind || 'npc' });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ type: 'text', content: text.slice(last) });
+
+  return parts.map((p, i) => {
+    if (p.type === 'text') {
+      return p.content.split('\n').reduce((acc, line, j, arr) => {
+        acc.push(line);
+        if (j < arr.length - 1) acc.push(<br key={`br-${i}-${j}`} />);
+        return acc;
+      }, []);
+    }
+    const meta = MENTION_KIND_META[p.kind] || MENTION_KIND_META.npc;
+    const chipStyle = {
+      color: `oklch(0.72 0.080 ${meta.hue})`,
+      background: `oklch(0.18 0.030 ${meta.hue})`,
+      borderColor: `oklch(0.32 0.050 ${meta.hue})`,
+    };
+    return (
+      <button
+        key={`m-${i}`}
+        className="codex-mention-chip"
+        style={chipStyle}
+        onClick={() => onNav && onNav(meta.page)}
+        title={'Go to ' + p.name}
+      >
+        <span className="codex-mention-chip-kind">{meta.label}</span>
+        {p.name}
+        <span className="codex-mention-chip-arrow">↗</span>
+      </button>
+    );
+  });
 }
 
 function CodexListItem({ entry, active, onClick }) {
@@ -473,7 +521,7 @@ function CodexListItem({ entry, active, onClick }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         {entry.pinned && <span style={{ color: 'oklch(0.72 0.090 80)', fontSize: 12, lineHeight: 1 }}>★</span>}
         <span className="codex-type-badge" style={ts}>{typeLabel}</span>
-        <div className="codex-item-title" style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+        <div className="codex-item-title" style={{ flex: 1 }}>{entry.title}</div>
       </div>
       {excerpt && <div className="codex-item-excerpt">{excerpt}{excerpt.length >= 90 ? '…' : ''}</div>}
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -484,17 +532,19 @@ function CodexListItem({ entry, active, onClick }) {
   );
 }
 
-function CodexEditor({ entry, patch, allEntities, onDelete }) {
-  const [body, setBody]           = _useState(entry.body || '');
-  const [tagDraft, setTagDraft]   = _useState('');
-  const [mentionState, setMention]= _useState(null); // { query, atStart, cursorEnd }
+function CodexEditor({ entry, patch, allEntities, onDelete, onNav }) {
+  const [body, setBody]             = _useState(entry.body || '');
+  const [tagDraft, setTagDraft]     = _useState('');
+  const [mentionState, setMention]  = _useState(null);
   const [dropCursor, setDropCursor] = _useState(0);
+  const [preview, setPreview]       = _useState(false);
   const taRef   = _useRef(null);
   const saveRef = _useRef(null);
 
   _useEffect(() => {
     setBody(entry.body || '');
     setMention(null);
+    setPreview(false);
   }, [entry.id]);
 
   function debounceSave(val) {
@@ -506,7 +556,6 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
     const val = e.target.value;
     setBody(val);
     debounceSave(val);
-
     const pos = e.target.selectionStart;
     const before = val.slice(0, pos);
     const m = before.match(/@([^@\[\n\r]*)$/);
@@ -519,7 +568,7 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
   }
 
   const filteredEntities = mentionState
-    ? allEntities.filter(e => !mentionState.query || e.name.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 8)
+    ? allEntities.filter(e => !mentionState.query || e.name.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 6)
     : [];
 
   function selectMention(entity) {
@@ -540,10 +589,10 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
 
   function onBodyKeyDown(e) {
     if (!mentionState || !filteredEntities.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setDropCursor(c => Math.min(c + 1, filteredEntities.length - 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setDropCursor(c => Math.max(c - 1, 0)); }
-    else if (e.key === 'Enter') { e.preventDefault(); selectMention(filteredEntities[dropCursor]); }
-    else if (e.key === 'Escape') setMention(null);
+    if (e.key === 'ArrowDown')      { e.preventDefault(); setDropCursor(c => Math.min(c + 1, filteredEntities.length - 1)); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); setDropCursor(c => Math.max(c - 1, 0)); }
+    else if (e.key === 'Enter')     { e.preventDefault(); selectMention(filteredEntities[dropCursor]); }
+    else if (e.key === 'Escape')    { setMention(null); }
   }
 
   function addTag(e) {
@@ -555,13 +604,8 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
     }
   }
 
-  function removeTag(tag) {
-    patch('tags', (entry.tags || []).filter(t => t !== tag));
-  }
-
   const links = parseMentions(body);
   const wordCount = body.trim().split(/\s+/).filter(Boolean).length;
-  const charCount = body.length;
 
   return (
     <div className="codex-editor">
@@ -581,23 +625,30 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
           >★</button>
         </div>
 
-        <div className="codex-type-row">
-          {CODEX_TYPES.map(t => {
-            const active = (entry.type || 'lore') === t.id;
-            return (
-              <button
-                key={t.id}
-                className="codex-type-btn"
-                style={active ? codexTypeStyle(t.id) : {}}
-                onClick={() => patch('type', t.id)}
-              >{t.label}</button>
-            );
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div className="codex-type-row">
+            {CODEX_TYPES.map(t => {
+              const active = (entry.type || 'lore') === t.id;
+              return (
+                <button
+                  key={t.id}
+                  className="codex-type-btn"
+                  style={active ? codexTypeStyle(t.id) : {}}
+                  onClick={() => patch('type', t.id)}
+                >{t.label}</button>
+              );
+            })}
+          </div>
+          <button
+            className={`codex-view-toggle${preview ? ' active' : ''}`}
+            onClick={() => setPreview(p => !p)}
+            title={preview ? 'Switch to edit' : 'Switch to preview'}
+          >{preview ? 'Edit' : 'Preview'}</button>
         </div>
 
         <div className="codex-tag-row">
           {(entry.tags || []).map(tag => (
-            <button key={tag} className="dossier-tag" onClick={() => removeTag(tag)} title="Remove tag">
+            <button key={tag} className="dossier-tag" onClick={() => patch('tags', (entry.tags || []).filter(t => t !== tag))} title="Remove tag">
               {tag} ×
             </button>
           ))}
@@ -611,33 +662,55 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
         </div>
       </div>
 
-      <div className="codex-body-wrap">
-        <textarea
-          ref={taRef}
-          className="codex-editor-body"
-          value={body}
-          onChange={onBodyChange}
-          onKeyDown={onBodyKeyDown}
-          placeholder={"Write freely — lore, history, DM notes…\n\nType @ to link a character, location, faction, secret, or rumor."}
-        />
-        {mentionState && filteredEntities.length > 0 && (
-          <div className="codex-mention-dropdown">
-            {filteredEntities.map((e, i) => (
-              <div
-                key={e.id}
-                className={`codex-mention-item${i === dropCursor ? ' active' : ''}`}
-                onMouseDown={ev => { ev.preventDefault(); selectMention(e); }}
-                onMouseEnter={() => setDropCursor(i)}
-              >
-                <span className="codex-mention-kind">{MENTION_KIND_LABEL[e.kind] || e.kind}</span>
-                <span className="codex-mention-name">{e.name}</span>
-                {e.sub && <span className="codex-mention-sub">{e.sub}</span>}
+      {/* Body: preview or edit */}
+      {preview ? (
+        <div className="codex-preview" onClick={() => setPreview(false)}>
+          {body.trim()
+            ? renderBodyWithMentions(body, allEntities, onNav)
+            : <span className="codex-preview-empty">Nothing written yet. Click to start writing.</span>
+          }
+        </div>
+      ) : (
+        <div className="codex-body-wrap">
+          <textarea
+            ref={taRef}
+            className="codex-editor-body"
+            value={body}
+            onChange={onBodyChange}
+            onKeyDown={onBodyKeyDown}
+            placeholder={"Write freely — lore, history, DM notes…\n\nType @ to link a player, character, location, faction, secret, or rumor."}
+          />
+          {mentionState && filteredEntities.length > 0 && (
+            <div className="codex-mention-dropdown">
+              <div className="codex-mention-header">
+                <span>Link entity</span>
+                <span className="codex-mention-query">{mentionState.query ? `"${mentionState.query}"` : 'type to filter…'}</span>
               </div>
-            ))}
-            <div className="codex-mention-hint">↑↓ · Enter to link · Esc to dismiss</div>
-          </div>
-        )}
-      </div>
+              {filteredEntities.map((e, i) => {
+                const meta = MENTION_KIND_META[e.kind] || MENTION_KIND_META.npc;
+                const kindStyle = {
+                  background: `oklch(0.20 0.030 ${meta.hue})`,
+                  color: `oklch(0.68 0.070 ${meta.hue})`,
+                  borderColor: `oklch(0.34 0.050 ${meta.hue})`,
+                };
+                return (
+                  <div
+                    key={e.id}
+                    className={`codex-mention-item${i === dropCursor ? ' active' : ''}`}
+                    onMouseDown={ev => { ev.preventDefault(); selectMention(e); }}
+                    onMouseEnter={() => setDropCursor(i)}
+                  >
+                    <span className="codex-mention-kind" style={kindStyle}>{meta.label}</span>
+                    <span className="codex-mention-name">{e.name}</span>
+                    {e.sub && <span className="codex-mention-sub">{e.sub}</span>}
+                  </div>
+                );
+              })}
+              <div className="codex-mention-hint">↑↓ navigate · Enter to link · Esc dismiss</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {links.length > 0 && (
         <div className="codex-links-panel">
@@ -645,11 +718,25 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
           <div className="codex-links-chips">
             {links.map((l, i) => {
               const entity = allEntities.find(e => e.id === l.id);
+              const meta = MENTION_KIND_META[entity?.kind || 'npc'];
+              const chipStyle = {
+                color: `oklch(0.68 0.070 ${meta.hue})`,
+                background: `oklch(0.18 0.028 ${meta.hue})`,
+                borderColor: `oklch(0.30 0.045 ${meta.hue})`,
+                cursor: 'pointer',
+              };
               return (
-                <span key={i} className="codex-entity-chip">
-                  {entity && <span className="codex-entity-kind">{MENTION_KIND_LABEL[entity.kind] || entity.kind}</span>}
+                <button
+                  key={i}
+                  className="codex-entity-chip"
+                  style={chipStyle}
+                  onClick={() => onNav && onNav(meta.page)}
+                  title={'Go to ' + (entity ? entity.name : l.name)}
+                >
+                  <span className="codex-entity-kind">{meta.label}</span>
                   {entity ? entity.name : l.name}
-                </span>
+                  <span style={{ opacity: 0.6, fontSize: 9 }}>↗</span>
+                </button>
               );
             })}
           </div>
@@ -657,14 +744,14 @@ function CodexEditor({ entry, patch, allEntities, onDelete }) {
       )}
 
       <div className="codex-editor-footer">
-        <span className="codex-word-count">{wordCount}w · {charCount}c</span>
+        <span className="codex-word-count">{wordCount}w · {body.length}c</span>
         <button className="btn-danger" onClick={onDelete}>Delete entry</button>
       </div>
     </div>
   );
 }
 
-function CodexPage({ codex }) {
+function CodexPage({ codex, onNav }) {
   const [selectedId, setSelectedId] = _useState(codex[0]?.id || null);
   const [search, setSearch]         = _useState('');
   const [typeFilter, setTypeFilter] = _useState('');
@@ -722,7 +809,7 @@ function CodexPage({ codex }) {
       {codex.length === 0 ? (
         <div className="vault-empty">
           <h3>The codex is empty</h3>
-          <p>Write lore, NPC backgrounds, faction histories — anything you need to remember. Link characters, locations, and secrets with @mentions.</p>
+          <p>Write lore, NPC backgrounds, faction histories — anything you need to remember. Link players, characters, locations, and secrets with @mentions.</p>
           <button className="btn-primary" style={{ marginTop: 8 }} onClick={addEntry}>Write first entry</button>
         </div>
       ) : (
@@ -772,8 +859,8 @@ function CodexPage({ codex }) {
           </div>
 
           {selected
-            ? <CodexEditor key={selected.id} entry={selected} patch={patch} allEntities={allEntities} onDelete={deleteEntry} />
-            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--demo-muted)', fontSize: 13 }}>Select an entry to edit</div>
+            ? <CodexEditor key={selected.id} entry={selected} patch={patch} allEntities={allEntities} onDelete={deleteEntry} onNav={onNav} />
+            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--demo-muted)', fontSize: 13 }}>Select an entry</div>
           }
         </div>
       )}

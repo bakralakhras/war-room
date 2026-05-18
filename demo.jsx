@@ -2089,7 +2089,7 @@ function DemoApp() {
       case 'rumors':      return <RumorsPage rumors={state.rumors} />;
       case 'prep':        return <PrepPage prep={state.prep} />;
       case 'map':         return <MapPage locations={state.locations} campaign={state.campaign} />;
-      case 'codex':       return <CodexPage codex={state.codex} />;
+      case 'codex':       return <CodexPage codex={state.codex} onNav={navTo} />;
       case 'timeline':    return <TimelinePage timeline={state.timeline} sessions={state.sessions} />;
       case 'settings':    return <SettingsPage state={state} onNav={navTo} />;
       default:            return <DashboardPage state={state} onNav={navTo} />;
