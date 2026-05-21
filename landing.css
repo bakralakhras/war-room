@@ -27,6 +27,7 @@
   overflow-x: hidden;
 }
 .site::before {
+  /* wood grain fixed overlay */
   content: "";
   position: fixed; inset: 0;
   pointer-events: none;
@@ -232,6 +233,7 @@
   text-align: center;
 }
 .hero::before {
+  /* faint amber wash from above */
   content: "";
   position: absolute; left: 0; right: 0; top: -120px; height: 480px;
   background:
@@ -269,6 +271,15 @@
   color: var(--royal-gold);
   font-weight: 500;
 }
+.hero h1 .quill {
+  display: inline-block;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 0.42em;
+  color: var(--fg-3);
+  margin: 0 0.2em;
+  vertical-align: 0.5em;
+}
 .hero p.subhead {
   font-family: var(--f-display);
   font-size: clamp(18px, 1.6vw, 22px);
@@ -288,11 +299,7 @@
   letter-spacing: 0.04em;
   font-style: italic;
 }
-.hero-fineprint .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--royal-gold-dim);
-  display: inline-block; margin: 0 8px; vertical-align: middle;
-}
+.hero-fineprint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--royal-gold-dim); display: inline-block; margin: 0 8px; vertical-align: middle; }
 
 /* ── hero mockup frame ──────────────────────────────────────────────── */
 .hero-mockup-wrap {
@@ -643,7 +650,8 @@
   flex-shrink: 0;
   display: grid; place-items: center;
   color: oklch(0.92 0.05 80);
-  font-family: var(--f-display); font-style: italic;
+  font-family: var(--f-display);
+  font-style: italic;
   box-shadow: 0 1px 3px oklch(0 0 0 / 0.5);
 }
 .embed-seal .seal-txt {
@@ -654,9 +662,12 @@
 }
 .embed-seal .seal-txt b {
   display: block;
-  text-transform: uppercase; letter-spacing: 0.22em;
-  font-size: 10px; font-weight: 700;
-  font-style: normal; margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 10px;
+  font-weight: 700;
+  font-style: normal;
+  margin-bottom: 2px;
 }
 .embed-seal .seal-body {
   filter: blur(4px);
@@ -689,6 +700,7 @@
 }
 .vault-card.bg1 { --rot: -4deg; }
 .vault-card.bg2 { --rot: 3deg; }
+
 .vault-card .stamp {
   width: 80px; height: 80px;
   margin: -8px auto 18px;
@@ -701,7 +713,8 @@
 .vault-card .v-title {
   text-align: center;
   font-family: var(--f-display);
-  font-size: 22px; line-height: 1.25;
+  font-size: 22px;
+  line-height: 1.25;
   color: var(--fg);
   margin: 8px 0 14px;
   filter: blur(var(--blur, 3.5px));
@@ -710,13 +723,14 @@
 .vault-card.open .v-title { filter: blur(0); }
 .vault-card .v-meta {
   text-align: center;
-  font-size: 11.5px; font-style: italic;
+  font-size: 11.5px;
+  font-style: italic;
   color: var(--fg-3);
   border-top: 1px dashed oklch(0.45 0.10 30 / 0.45);
   padding-top: 10px;
 }
 
-/* ── By Royal Decree numbered list ────────────────────────────────── */
+/* ── what's in the box / royal decree numbered list ────────────────── */
 .decree-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -793,7 +807,7 @@
   line-height: 1.55;
   color: var(--ink);
   margin: 10px 0 18px;
-  quotes: "\201C" "\201D" "\2018" "\2019";
+  quotes: """ """ "'" "'";
 }
 .attest blockquote::before { content: open-quote; color: oklch(0.42 0.13 28); margin-right: 2px; }
 .attest blockquote::after  { content: close-quote; color: oklch(0.42 0.13 28); margin-left: 2px; }
@@ -806,11 +820,7 @@
   font-weight: 700;
   display: block;
 }
-.attest cite span {
-  display: block; color: var(--ink-dim); font-weight: 500;
-  letter-spacing: 0.06em; text-transform: none;
-  font-style: italic; font-size: 12px; margin-top: 2px;
-}
+.attest cite span { display: block; color: var(--ink-dim); font-weight: 500; letter-spacing: 0.06em; text-transform: none; font-style: italic; font-size: 12px; margin-top: 2px; }
 
 /* ── pricing tiers ─────────────────────────────────────────────────── */
 .tiers {
@@ -846,31 +856,42 @@
   position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
   background: linear-gradient(180deg, var(--royal-gold), var(--royal-gold-2));
   color: oklch(0.16 0.04 50);
-  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
-  font-weight: 700; padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 12px;
   border-radius: 999px;
   box-shadow: 0 4px 10px oklch(0.5 0.13 80 / 0.3);
 }
 .tier .tier-rank {
   font-family: var(--f-display);
-  font-style: italic; font-size: 14px;
-  letter-spacing: 0.08em; color: var(--royal-gold);
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--royal-gold);
 }
 .tier .tier-name {
   font-family: var(--f-display);
-  font-size: 36px; line-height: 1;
-  font-weight: 500; color: var(--fg);
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--fg);
   margin: 6px 0 4px;
 }
 .tier .tier-blurb {
-  font-style: italic; color: var(--fg-2);
-  font-size: 13.5px; margin-bottom: 18px;
+  font-style: italic;
+  color: var(--fg-2);
+  font-size: 13.5px;
+  margin-bottom: 18px;
   min-height: 36px;
 }
 .tier .price {
   font-family: var(--f-display);
-  font-size: 50px; line-height: 1;
-  color: var(--fg); margin-bottom: 4px;
+  font-size: 50px;
+  line-height: 1;
+  color: var(--fg);
+  margin-bottom: 4px;
 }
 .tier .price .currency { font-size: 0.5em; vertical-align: 0.6em; color: var(--royal-gold-dim); margin-right: 2px; }
 .tier .price .per { font-family: var(--f-ui); font-size: 12px; color: var(--fg-3); margin-left: 4px; }
@@ -880,14 +901,17 @@
 }
 .tier ul.tier-list li {
   padding: 8px 0 8px 22px;
-  font-size: 13.5px; color: var(--fg-1);
+  font-size: 13.5px;
+  color: var(--fg-1);
   border-bottom: 1px dashed var(--hairline-2);
-  position: relative; line-height: 1.45;
+  position: relative;
+  line-height: 1.45;
 }
 .tier ul.tier-list li::before {
   content: "✓";
   position: absolute; left: 0; top: 8px;
-  color: var(--royal-gold); font-weight: 600;
+  color: var(--royal-gold);
+  font-weight: 600;
 }
 .tier ul.tier-list li.muted { color: var(--fg-3); }
 .tier ul.tier-list li.muted::before { content: "—"; color: var(--fg-4); }
@@ -905,22 +929,28 @@
 .faq-item summary {
   cursor: pointer;
   font-family: var(--f-display);
-  font-size: 22px; font-weight: 500;
+  font-size: 22px;
+  font-weight: 500;
   color: var(--fg);
   list-style: none;
-  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px;
 }
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after {
   content: "❦";
-  color: var(--royal-gold); font-size: 14px;
-  transition: transform 0.18s; opacity: 0.7;
+  color: var(--royal-gold);
+  font-size: 14px;
+  transition: transform 0.18s;
+  opacity: 0.7;
 }
 .faq-item[open] summary::after { transform: rotate(45deg); }
 .faq-item p {
   margin: 14px 0 0;
-  font-size: 14.5px; line-height: 1.7;
-  color: var(--fg-1); max-width: 720px;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--fg-1);
+  max-width: 720px;
 }
 
 /* ── founder note ───────────────────────────────────────────────────── */
@@ -950,24 +980,35 @@
 }
 .founder > * { position: relative; z-index: 1; }
 .founder h3 {
-  font-family: var(--f-display); font-style: italic;
-  font-size: 32px; margin: 0 0 14px;
-  font-weight: 500; color: var(--ink);
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 32px;
+  margin: 0 0 14px;
+  font-weight: 500;
+  color: var(--ink);
 }
 .founder p.dropcap {
-  font-size: 15.5px; line-height: 1.75;
-  color: var(--ink); margin: 0 0 14px;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--ink);
+  margin: 0 0 14px;
 }
 .founder p.dropcap::first-letter {
   font-family: var(--f-display);
-  font-size: 4em; line-height: 0.85;
-  float: left; margin: 4px 10px -4px 0;
-  color: oklch(0.32 0.16 28); font-weight: 500;
+  font-size: 4em;
+  line-height: 0.85;
+  float: left;
+  margin: 4px 10px -4px 0;
+  color: oklch(0.32 0.16 28);
+  font-weight: 500;
 }
 .founder .sig {
-  font-family: var(--f-display); font-style: italic;
-  font-size: 38px; line-height: 1.1;
-  color: oklch(0.32 0.16 28); margin: 22px 0 0;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 38px;
+  line-height: 1.1;
+  color: oklch(0.32 0.16 28);
+  margin: 22px 0 0;
 }
 .founder .sig-meta {
   font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
@@ -989,15 +1030,21 @@
 .last-cta h2 {
   font-family: var(--f-display);
   font-size: clamp(44px, 6vw, 84px);
-  line-height: 1.05; font-weight: 500;
-  margin: 0 0 22px; color: var(--fg);
+  line-height: 1.05;
+  font-weight: 500;
+  margin: 0 0 22px;
+  color: var(--fg);
   text-wrap: balance;
 }
 .last-cta h2 em { color: var(--royal-gold); font-style: italic; }
 .last-cta p {
-  font-family: var(--f-display); font-style: italic;
-  font-size: 19px; color: var(--fg-1);
-  max-width: 540px; margin: 0 auto 32px; line-height: 1.5;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 19px;
+  color: var(--fg-1);
+  max-width: 540px;
+  margin: 0 auto 32px;
+  line-height: 1.5;
 }
 
 /* ── footer ─────────────────────────────────────────────────────────── */
@@ -1022,12 +1069,17 @@
 }
 .foot-grid h5 {
   font-size: 10.5px;
-  letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--royal-gold); margin: 0 0 14px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--royal-gold);
+  margin: 0 0 14px;
 }
 .foot-grid a {
-  display: block; font-size: 13px;
-  color: var(--fg-2); text-decoration: none; padding: 4px 0;
+  display: block;
+  font-size: 13px;
+  color: var(--fg-2);
+  text-decoration: none;
+  padding: 4px 0;
 }
 .foot-grid a:hover { color: var(--royal-gold); }
 .foot-bottom {
@@ -1036,13 +1088,16 @@
   padding-top: 22px;
   border-top: 1px solid var(--hairline-2);
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 11.5px; color: var(--fg-3); font-style: italic;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  font-style: italic;
 }
 .foot-bottom .seal {
-  font-family: var(--f-display); letter-spacing: 0.12em;
+  font-family: var(--f-display);
+  letter-spacing: 0.12em;
 }
 
-/* ── candle flame ─────────────────────────────────────────────────── */
+/* ── shared utility: candle/ember dot, reused ──────────────────────── */
 .candle-flame {
   width: 14px; height: 22px;
   background:
@@ -1068,7 +1123,4 @@
   .nav-links { display: none; }
   .section { padding: 70px 24px; }
   .hero { padding: 60px 24px 40px; }
-  .vault-stack { height: auto; }
-  .vault-card { width: 100%; max-width: 380px; }
-  .vault-card.bg1, .vault-card.bg2 { display: none; }
 }

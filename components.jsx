@@ -171,14 +171,21 @@ const Icon = {
       <path d="M9 6 L15 12 L9 18" />
     </svg>
   ),
+  Inspiration: (p) => (
+    <svg className={p.className || 'icn'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M12 2 L13.8 9.2 L21 8 L15.2 12.8 L18 20 L12 15.8 L6 20 L8.8 12.8 L3 8 L10.2 9.2 Z" strokeLinejoin="round" />
+    </svg>
+  ),
 };
 
-// ── Sigils (faction emblems) ───────────────────────────────────────────
+// ── Sigils (faction emblems, drawn in SVG) ─────────────────────────────
 const Sigil = ({ kind, size = 28, color }) => {
   const s = size;
   const stroke = color || 'currentColor';
   const sw = 1.2;
+  const cx = s / 2, cy = s / 2;
   if (kind === 'concord') {
+    // crossed swords inside a ring
     return (
       <svg width={s} height={s} viewBox="0 0 28 28" fill="none" stroke={stroke} strokeWidth={sw}>
         <circle cx="14" cy="14" r="11" />
@@ -188,6 +195,7 @@ const Sigil = ({ kind, size = 28, color }) => {
     );
   }
   if (kind === 'hand') {
+    // open palm with eye in a veil
     return (
       <svg width={s} height={s} viewBox="0 0 28 28" fill="none" stroke={stroke} strokeWidth={sw}>
         <path d="M14 3 C 9 3, 5 7, 5 13 C 5 19, 10 25, 14 25 C 18 25, 23 19, 23 13 C 23 7, 19 3, 14 3 Z" />
@@ -237,7 +245,7 @@ function FactionClock({ segments, filled, size = 96, color = 'oxblood', label, o
   const cx = size / 2, cy = size / 2;
   const rOuter = size / 2 - 4;
   const rInner = size / 2 - 18;
-  const gap = 0.018;
+  const gap = 0.018; // radians
   const step = (Math.PI * 2) / segments;
   const fillStops = {
     oxblood: ['oklch(0.5 0.16 26)', 'oklch(0.32 0.14 26)'],
@@ -274,13 +282,15 @@ function FactionClock({ segments, filled, size = 96, color = 'oxblood', label, o
     <div className="clock" style={{ '--size': size + 'px' }}>
       <svg viewBox={`0 0 ${size} ${size}`}>
         <defs>
-          <radialGradient id={`fc-fill-${color}-${size}`} cx="50%" cy="30%" r="70%">
+          <radialGradient id={`fc-${color}`} cx="50%" cy="30%" r="70%">
             <stop offset="0%" stopColor={fillStops[0]} />
             <stop offset="100%" stopColor={fillStops[1]} />
           </radialGradient>
         </defs>
+        {/* outer brass rim */}
         <circle cx={cx} cy={cy} r={rOuter + 6} fill="none" stroke="var(--brass-dim)" strokeWidth="0.6" opacity="0.6" />
         {tickMarks}
+        {/* empty wedges */}
         {Array.from({ length: segments }).map((_, i) => (
           <path key={`e${i}`} d={wedgePath(i)}
             fill="oklch(0 0 0 / 0.35)"
@@ -290,15 +300,17 @@ function FactionClock({ segments, filled, size = 96, color = 'oxblood', label, o
             style={{ cursor: onSegmentClick ? 'pointer' : 'default' }}
           />
         ))}
+        {/* filled wedges */}
         {Array.from({ length: filled }).map((_, i) => (
           <path key={`f${i}`} d={wedgePath(i)}
-            fill={`url(#fc-fill-${color}-${size})`}
+            fill={`url(#fc-${color})`}
             stroke="var(--brass-dim)"
             strokeWidth="0.5"
             onClick={onSegmentClick ? () => onSegmentClick(i) : undefined}
             style={{ cursor: onSegmentClick ? 'pointer' : 'default' }}
           />
         ))}
+        {/* inner ring */}
         <circle cx={cx} cy={cy} r={rInner - 2} fill="oklch(0.16 0.012 60)" stroke="var(--brass-dim)" strokeWidth="0.5" />
       </svg>
       <div className="center">
@@ -308,37 +320,38 @@ function FactionClock({ segments, filled, size = 96, color = 'oxblood', label, o
   );
 }
 
-// ── Wax seal ──────────────────────────────────────────────────────────
+// ── Wax seal (for sealed secrets) ──────────────────────────────────────
 function WaxSeal({ size = 56, broken = false, label = "S" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 56 56">
       <defs>
-        <radialGradient id="wax-grad" cx="35%" cy="30%" r="70%">
+        <radialGradient id="wax" cx="35%" cy="30%" r="70%">
           <stop offset="0%" stopColor="oklch(0.55 0.20 26)" />
           <stop offset="60%" stopColor="oklch(0.36 0.16 26)" />
           <stop offset="100%" stopColor="oklch(0.22 0.14 26)" />
         </radialGradient>
-        <filter id="wax-drop">
+        <filter id="wax-shadow">
           <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.5" />
         </filter>
       </defs>
-      <g filter="url(#wax-drop)">
+      <g filter="url(#wax-shadow)">
         {!broken ? (
           <>
             <path d="M28 4 C 36 5, 48 9, 51 18 C 54 26, 50 36, 45 42 C 40 48, 32 52, 26 50 C 18 48, 8 44, 5 36 C 2 28, 6 18, 12 12 C 18 6, 22 3, 28 4 Z"
-                  fill="url(#wax-grad)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
+                  fill="url(#wax)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
             <circle cx="28" cy="28" r="14" fill="none" stroke="oklch(0.62 0.18 26 / 0.5)" strokeWidth="0.6" />
             <text x="28" y="33" textAnchor="middle" fontFamily="Cormorant Garamond, serif"
-                  fontSize="20" fontStyle="italic" fill="oklch(0.92 0.04 80)">
+                  fontSize="20" fontStyle="italic" fill="oklch(0.92 0.04 80)"
+                  style={{ textShadow: '0 1px 1px oklch(0 0 0 / 0.5)' }}>
               {label}
             </text>
           </>
         ) : (
           <>
             <path d="M28 4 C 36 5, 44 9, 46 14 L 30 24 L 22 16 L 8 14 C 14 8, 22 3, 28 4 Z"
-                  fill="url(#wax-grad)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
+                  fill="url(#wax)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
             <path d="M48 18 C 52 24, 52 34, 46 42 C 40 48, 32 52, 26 50 C 22 49, 14 45, 10 38 L 22 26 L 30 28 L 38 20 Z"
-                  fill="url(#wax-grad)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
+                  fill="url(#wax)" stroke="oklch(0.55 0.18 26 / 0.6)" strokeWidth="0.5"/>
             <path d="M22 18 L 30 26 L 22 30 L 32 38" stroke="oklch(0.15 0.04 30)" strokeWidth="0.8" fill="none" opacity="0.4"/>
           </>
         )}
@@ -359,23 +372,68 @@ function DispPill({ d }) {
   return <span className={`pill ${m.cls}`}><span className={`dot ${d === 'ambiguous' ? 'ambig' : d}`}></span>{m.txt}</span>;
 }
 
-Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill });
+function Field({ label, value, onChange, autoFocus, multiline, placeholder, options, name }) {
+  const controlStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    background: 'var(--field-bg, oklch(0.16 0.012 60 / 0.55))',
+    border: '1px solid var(--hairline-2)',
+    borderRadius: 'var(--r)',
+    color: 'var(--fg)',
+    padding: '8px 10px',
+    fontSize: 13,
+    outline: 'none',
+  };
+  return (
+    <label style={{ display: 'block' }}>
+      <div className="smallcaps" style={{ fontSize: 9.5, marginBottom: 5 }}>{label}</div>
+      {options ? (
+        <select name={name} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} style={controlStyle}>
+          {options.map(option => {
+            const normalized = typeof option === 'string' ? { value: option, label: option } : option;
+            return <option key={normalized.value} value={normalized.value}>{normalized.label}</option>;
+          })}
+        </select>
+      ) : multiline ? (
+        <textarea name={name} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus}
+          placeholder={placeholder} rows={3} style={{ ...controlStyle, resize: 'vertical', lineHeight: 1.45 }} />
+      ) : (
+        <input name={name} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus}
+          placeholder={placeholder} style={controlStyle} />
+      )}
+    </label>
+  );
+}
 
-// ── WikiLink: hover preview + click-to-navigate ─────────────────────
+// Export everything
+Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill, Field });
+
+// ── WikiLink: hover preview + click-to-navigate for any entity ─────────
+// Pass `id` matching any NPC, faction, location, religion, relic, or lore.
+// Wraps children as a styled link; renders a portal popover on hover.
 function getEntity(id) {
-  const npc = (window.NPCS || []).find(n => n.id === id);
+  const state = window.Store ? window.Store.get() : null;
+  const key = normalizeEntityKey(id);
+  const matches = (entity) => normalizeEntityKey(entity.id) === key || normalizeEntityKey(entity.name || entity.label || entity.title) === key;
+  const npc = (state?.npcs || []).find(matches);
   if (npc) return { ...npc, _type: 'npc' };
-  const fac = (window.FACTIONS || []).find(f => f.id === id);
+  const fac = (state?.factions || []).find(matches);
   if (fac) return { ...fac, _type: 'faction' };
-  const loc = (window.MAP_LOCATIONS || []).find(l => l.id === id);
+  const loc = (state?.locations || []).find(matches);
   if (loc) return { ...loc, _type: 'location' };
-  const rel = (window.RELIGIONS || []).find(r => r.id === id);
+  const rel = (state?.religions || []).find(matches);
   if (rel) return { ...rel, _type: 'religion' };
-  const it  = (window.RELICS || []).find(r => r.id === id);
+  const it  = (state?.relics || []).find(matches);
   if (it)  return { ...it, _type: 'relic' };
-  const lore= (window.LORE || []).find(l => l.id === id);
+  const lore= (state?.lore || []).find(matches);
   if (lore) return { ...lore, _type: 'lore' };
+  const codex = (state?.codex || []).find(matches);
+  if (codex) return { id: codex.id, name: codex.title, title: codex.type, desc: codex.body, kind: codex.type, _type: 'lore' };
   return null;
+}
+
+function normalizeEntityKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 function WikiLink({ id, children, kind }) {
@@ -389,6 +447,7 @@ function WikiLink({ id, children, kind }) {
   const onEnter = () => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
+    // Position the popover near the link; the WikiHover clamps to viewport.
     setPos({ x: r.left, y: r.bottom + 6 });
     setHover(true);
   };
@@ -399,7 +458,8 @@ function WikiLink({ id, children, kind }) {
     if (entity._type === 'npc') nav('npc', { id: entity.id });
     else if (entity._type === 'faction') nav('faction', { id: entity.id });
     else if (entity._type === 'location') nav('maps');
-    else nav('codex', { highlight: entity.id });
+    else if (entity._type === 'religion' || entity._type === 'relic' || entity._type === 'lore')
+      nav('codex', { highlight: entity.id });
   };
 
   const cls = kind || (
@@ -421,11 +481,15 @@ function WikiLink({ id, children, kind }) {
 }
 
 function WikiHover({ entity, x, y }) {
+  // Clamp to viewport
   const W = 280, M = 12;
   const left = Math.min(window.innerWidth - W - M, Math.max(M, x));
   const top  = Math.min(window.innerHeight - 200, Math.max(M, y));
 
   const e = entity;
+  const portraitCh = e._type === 'npc' ? (e.name || '?')[0] : null;
+  const sigil = e._type === 'faction' ? e.sigil : null;
+
   const summary = (() => {
     if (e._type === 'npc') return `"${e.quote}"`;
     if (e._type === 'faction') return e.summary;
@@ -446,10 +510,14 @@ function WikiHover({ entity, x, y }) {
 
   const portrait = e._type === 'faction' ? (
     <div className="wp-portrait">
-      <Sigil kind={e.sigil} size={22} color="var(--brass)" />
+      <Sigil kind={sigil} size={22} color="var(--brass)" />
+    </div>
+  ) : e._type === 'npc' && e.image ? (
+    <div className="wp-portrait" style={{ overflow: 'hidden', padding: 0 }}>
+      <img src={e.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
     </div>
   ) : (
-    <div className="wp-portrait">{e.name[0]}</div>
+    <div className="wp-portrait">{portraitCh || e.name[0]}</div>
   );
 
   return ReactDOM.createPortal(
@@ -458,7 +526,8 @@ function WikiHover({ entity, x, y }) {
         {portrait}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="wp-name">{e.name}</div>
-          {(e.title || e.kind) && <div className="wp-title">{e.title || e.kind}</div>}
+          {e.title && <div className="wp-title">{e.title}</div>}
+          {e.kind && !e.title && <div className="wp-title">{e.kind}</div>}
         </div>
       </div>
       <div className="wp-tags">
@@ -473,4 +542,43 @@ function WikiHover({ entity, x, y }) {
   );
 }
 
-Object.assign(window, { WikiLink, WikiHover, getEntity });
+// ── Toast notification system ─────────────────────────────────────────
+function ToastContainer() {
+  const [toasts, setToasts] = React.useState([]);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      const { id, message, kind = 'ok', icon = '✦', duration = 2800 } = e.detail;
+      setToasts(prev => [...prev, { id, message, kind, icon, dying: false }]);
+      setTimeout(() => {
+        setToasts(prev => prev.map(t => t.id === id ? { ...t, dying: true } : t));
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 240);
+      }, duration);
+    };
+    window.addEventListener('warroom:toast', handler);
+    return () => window.removeEventListener('warroom:toast', handler);
+  }, []);
+
+  if (!toasts.length) return null;
+  return ReactDOM.createPortal(
+    <div className="toast-tray">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.kind} ${t.dying ? 'dying' : ''}`}>
+          <span className="toast-icon">{t.icon}</span>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>,
+    document.body
+  );
+}
+
+window.toast = function(message, { kind = 'ok', icon, duration } = {}) {
+  const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  const icons = { ok: '✦', warn: '⚠', err: '✕' };
+  window.dispatchEvent(new CustomEvent('warroom:toast', {
+    detail: { id, message, kind, icon: icon || icons[kind] || '✦', duration }
+  }));
+};
+
+Object.assign(window, { WikiLink, WikiHover, getEntity, ToastContainer });

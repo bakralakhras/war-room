@@ -33,6 +33,8 @@
       <div class="auth-tab"        id="tab-register" onclick="switchTab('register')">Register</div>
     </div>
 
+    <div class="auth-msg info" id="session-msg" style="display:none"></div>
+
     <!-- Login form -->
     <form class="auth-form" id="form-login" onsubmit="handleLogin(event)">
       <div class="field">
@@ -75,9 +77,18 @@
 </div>
 
 <script>
-  // Redirect if already logged in
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('logout') === '1' || params.get('switch') === '1') {
+    window.Auth.logout = window.Auth.logout || function () {};
+    localStorage.removeItem('warroom_session');
+    window.Auth.session = null;
+    window.history.replaceState({}, document.title, 'login.html');
+  }
+
   if (window.Auth.session) {
-    window.location.href = 'demo.html';
+    const msg = document.getElementById('session-msg');
+    msg.style.display = 'block';
+    msg.innerHTML = `Signed in as ${window.Auth.session.displayName || window.Auth.session.username}. <a href="demo.html">Continue to DM War Room</a> · <a href="login.html?switch=1">Switch account</a>`;
   }
 
   function switchTab(tab) {

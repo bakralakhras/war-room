@@ -1,7 +1,9 @@
-// The War Room — landing/marketing site.
-// Royal, ceremonial, for-DMs-only.
+// The War Room — landing site (royal, ceremonial, for-DMs-only).
+// One scroll; React only used to keep things organized and to wire
+// a couple of small interactive demos (vault crack, faction clock tick).
 
 function HeraldicMark({ size = 32 }) {
+  // Crossed quill + saber inside a shield, brass on dark.
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <defs>
@@ -21,7 +23,7 @@ function HeraldicMark({ size = 32 }) {
       <path d="M 23 9 Q 16 14, 9 22 L 11 23 Q 19 17, 24 10 Z"
             fill="oklch(0.92 0.04 80)" stroke="oklch(0.45 0.05 50)" strokeWidth="0.4" />
       <path d="M 9 22 L 6.5 24.5" stroke="oklch(0.45 0.05 50)" strokeWidth="0.8" />
-      {/* crown atop shield */}
+      {/* crown atop the shield */}
       <path d="M 11 4 L 12.5 2.4 L 14 4 L 16 2 L 18 4 L 19.5 2.4 L 21 4"
             fill="none" stroke="var(--royal-gold)" strokeWidth="0.8" />
     </svg>
@@ -48,7 +50,7 @@ function Crown({ size = 64 }) {
   );
 }
 
-// ── NAV ──────────────────────────────────────────────────────────────
+// ── NAV ────────────────────────────────────────────────────────────────
 function SiteNav() {
   return (
     <nav className="site-nav">
@@ -69,14 +71,57 @@ function SiteNav() {
       </div>
       <div className="nav-spacer"></div>
       <div className="nav-actions">
-        <a href="demo.html" className="r-btn ghost">Sign in</a>
-        <a href="demo.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
+        <a href="Demo - The Tool.html" className="r-btn ghost">Sign in</a>
+        <a href="Demo - The Tool.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
       </div>
     </nav>
   );
 }
 
-// ── HERO ──────────────────────────────────────────────────────────────
+// ── HERO ───────────────────────────────────────────────────────────────
+function Hero() {
+  return (
+    <header className="hero" id="top">
+      <div className="hero-eyebrow">By Royal Decree · Anno MMXXVI</div>
+      <div className="crown" style={{ marginBottom: 16 }}>
+        <Crown size={72} />
+      </div>
+      <h1>
+        The realm runs <em>itself.</em><br />
+        You run <em>the table.</em>
+      </h1>
+      <p className="subhead">
+        A worldbuilding command center for the Dungeon Master alone.
+        Five faction clocks turn whether you watch or not.
+        Every secret you keep is sealed in wax.
+        Every name you write is linked to every other name.
+      </p>
+      <div className="hero-cta">
+        <a href="Demo - The Tool.html" className="r-btn gold">
+          Open the War Room <span className="arrow">→</span>
+        </a>
+        <a href="#pillars" className="r-btn ghost">Watch · II minutes</a>
+      </div>
+      <div className="hero-fineprint">
+        Local-first · No player ever sees this <span className="dot"></span> Free for the first 100 articles
+      </div>
+
+      <div className="hero-mockup-wrap">
+        <div className="hero-mockup">
+          <div className="chrome">
+            <i style={{ background: 'oklch(0.55 0.18 26)' }}></i>
+            <i style={{ background: 'oklch(0.7 0.13 80)' }}></i>
+            <i style={{ background: 'oklch(0.55 0.10 145)' }}></i>
+            <div className="url">vaelthorne.warroom.local <span style={{ opacity: 0.5 }}>· session XIV</span></div>
+          </div>
+          <MiniDashboard />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// MiniDashboard — compact embedded preview that *looks* like the app.
 function MiniDashboard() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', minHeight: 480, background: 'oklch(0.20 0.030 62)' }}>
@@ -99,10 +144,13 @@ function MiniDashboard() {
             { l: 'Encounters' },
           ].map(it => (
             <div key={it.l} style={{
-              padding: '5px 8px', borderRadius: 4,
+              padding: '5px 8px',
+              borderRadius: 4,
               background: it.a ? 'linear-gradient(90deg, oklch(0.28 0.04 70 / 0.7), transparent)' : 'transparent',
               color: it.a ? 'var(--fg)' : 'var(--fg-2)',
-              fontSize: 11.5, marginBottom: 2, position: 'relative',
+              fontSize: 11.5,
+              marginBottom: 2,
+              position: 'relative',
             }}>
               {it.a && <span style={{ position: 'absolute', left: 2, top: 6, bottom: 6, width: 2, background: 'var(--royal-gold)', borderRadius: 1 }}></span>}
               {it.l}
@@ -118,7 +166,7 @@ function MiniDashboard() {
           ))}
         </div>
       </div>
-      {/* main content */}
+      {/* content */}
       <div style={{ padding: 18 }}>
         <div style={{ fontSize: 9.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--royal-gold)', marginBottom: 4 }}>
           <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--candle)', marginRight: 6, verticalAlign: 'middle' }}></span>
@@ -143,12 +191,15 @@ function MiniDashboard() {
           ))}
         </div>
 
-        {/* session brief + rumor */}
+        {/* three mini cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, marginTop: 12 }}>
+          {/* brief */}
           <div style={{
-            padding: '14px 14px 12px', borderRadius: 6,
+            padding: '14px 14px 12px',
+            borderRadius: 6,
             background: 'radial-gradient(140% 100% at 50% 0%, oklch(0.92 0.05 84) 0%, oklch(0.84 0.06 78) 100%)',
-            color: 'var(--ink)', border: '1px solid oklch(0.55 0.07 70 / 0.45)',
+            color: 'var(--ink)',
+            border: '1px solid oklch(0.55 0.07 70 / 0.45)',
           }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
               <WaxSeal size={28} label="XIV" />
@@ -158,16 +209,19 @@ function MiniDashboard() {
               </div>
             </div>
             <div style={{ fontSize: 11.5, lineHeight: 1.55, color: 'var(--ink)' }}>
-              Bells out of tune at <span style={{ color: 'oklch(0.32 0.16 28)', textDecoration: 'underline dotted' }}>@Cinderhold</span>.
-              A funeral procession winds through the lower city.{' '}
-              <span style={{ color: 'oklch(0.32 0.16 28)', textDecoration: 'underline dotted' }}>@Theron</span>'s widow does not weep.
+              Bells out of tune at <span style={{ color: 'oklch(0.32 0.16 28)', textDecoration: 'underline dotted', textDecorationColor: 'oklch(0.5 0.13 28 / 0.5)' }}>@Cinderhold</span>. A funeral procession winds through the lower city.
+              <span style={{ color: 'oklch(0.32 0.16 28)', textDecoration: 'underline dotted', textDecorationColor: 'oklch(0.5 0.13 28 / 0.5)' }}> @Theron</span>'s widow does not weep.
             </div>
           </div>
 
+          {/* rumors */}
           <div style={{
             background: 'linear-gradient(180deg, oklch(0.90 0.055 82), oklch(0.83 0.065 78))',
-            color: 'var(--ink)', padding: '12px 14px', borderRadius: 3,
-            transform: 'rotate(-0.6deg)', position: 'relative',
+            color: 'var(--ink)',
+            padding: '12px 14px',
+            borderRadius: 3,
+            transform: 'rotate(-0.6deg)',
+            position: 'relative',
             boxShadow: '0 8px 14px -10px oklch(0 0 0 / 0.55)',
           }}>
             <div style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, var(--royal-gold), var(--royal-gold-2))', boxShadow: '0 1px 2px oklch(0 0 0 / 0.55)' }}></div>
@@ -178,12 +232,12 @@ function MiniDashboard() {
           </div>
         </div>
 
-        {/* faction banners */}
+        {/* faction banners row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
           {[
-            { name: 'Iron Concord', cls: 'iron',    sigil: 'concord', seg: 8, fill: 5, color: 'iron' },
-            { name: 'Veiled Hand',  cls: 'crimson', sigil: 'hand',    seg: 6, fill: 4, color: 'oxblood' },
-            { name: 'Saltbrothers', cls: 'forest',  sigil: 'anchor',  seg: 6, fill: 3, color: 'forest' },
+            { name: 'Iron Concord', cls: 'iron', sigil: 'concord' },
+            { name: 'Veiled Hand', cls: 'crimson', sigil: 'hand' },
+            { name: 'Saltbrothers', cls: 'forest', sigil: 'anchor' },
           ].map(b => (
             <div key={b.name}>
               <div className={`banner ${b.cls}`} style={{ padding: '8px 10px 14px', borderRadius: '4px 4px 0 0' }}>
@@ -195,7 +249,7 @@ function MiniDashboard() {
                 </div>
               </div>
               <div style={{ background: 'oklch(0.24 0.030 62)', borderRadius: '0 0 4px 4px', padding: '6px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FactionClock segments={b.seg} filled={b.fill} size={32} color={b.color} />
+                <FactionClock segments={b.cls === 'iron' ? 8 : 6} filled={b.cls === 'iron' ? 5 : b.cls === 'crimson' ? 4 : 3} size={32} color={b.cls === 'crimson' ? 'oxblood' : b.cls === 'forest' ? 'forest' : 'iron'} />
                 <div style={{ fontSize: 10, color: 'var(--fg-2)', fontStyle: 'italic' }}>marching</div>
               </div>
             </div>
@@ -206,49 +260,7 @@ function MiniDashboard() {
   );
 }
 
-function Hero() {
-  return (
-    <header className="hero" id="top">
-      <div className="hero-eyebrow">By Royal Decree · Anno MMXXVI</div>
-      <div className="crown" style={{ marginBottom: 16 }}>
-        <Crown size={72} />
-      </div>
-      <h1>
-        The realm runs <em>itself.</em><br />
-        You run <em>the table.</em>
-      </h1>
-      <p className="subhead">
-        A worldbuilding command center for the Dungeon Master alone.
-        Five faction clocks turn whether you watch or not.
-        Every secret you keep is sealed in wax.
-        Every name you write is linked to every other name.
-      </p>
-      <div className="hero-cta">
-        <a href="demo.html" className="r-btn gold">
-          Open the War Room <span className="arrow">→</span>
-        </a>
-        <a href="#pillars" className="r-btn ghost">Watch · II minutes</a>
-      </div>
-      <div className="hero-fineprint">
-        Local-first · No player ever sees this <span className="dot"></span> Free for the first 100 articles
-      </div>
-
-      <div className="hero-mockup-wrap">
-        <div className="hero-mockup">
-          <div className="chrome">
-            <i style={{ background: 'oklch(0.55 0.18 26)' }}></i>
-            <i style={{ background: 'oklch(0.7 0.13 80)' }}></i>
-            <i style={{ background: 'oklch(0.55 0.10 145)' }}></i>
-            <div className="url">vaelthorne.warroom.local <span style={{ opacity: 0.5 }}>· session XIV</span></div>
-          </div>
-          <MiniDashboard />
-        </div>
-      </div>
-    </header>
-  );
-}
-
-// ── Manifesto ─────────────────────────────────────────────────────────
+// ── Manifesto strip ───────────────────────────────────────────────────
 function Manifesto() {
   return (
     <section className="manifesto">
@@ -266,7 +278,7 @@ function Pillars() {
     <section className="section" id="pillars">
       <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
         <div className="eyebrow"><span className="roman">I.</span> The pillars</div>
-        <h2 className="display-h">Three rooms in one <em>court.</em></h2>
+        <h2 className="display-h">Three rooms in one <em>court</em>.</h2>
         <div className="lede" style={{ margin: '0 auto' }}>
           The War Room you run from. The Codex you write in. The Vault you hold over them.
         </div>
@@ -281,7 +293,10 @@ function Pillars() {
             The party's last known location. Sealed secrets queued to surface.
             Rumors on the wind. Every NPC likely to walk in tonight.
           </p>
-          <div className="pillar-mock" style={{ background: 'linear-gradient(180deg, oklch(0.26 0.034 64), oklch(0.20 0.030 62))', display: 'grid', placeItems: 'center' }}>
+          <div className="pillar-mock" style={{ background:
+              'linear-gradient(180deg, oklch(0.26 0.034 64), oklch(0.20 0.030 62))',
+              display: 'grid', placeItems: 'center'
+          }}>
             <FactionClock segments={8} filled={5} size={88} color="oxblood" />
           </div>
         </div>
@@ -294,9 +309,9 @@ function Pillars() {
             and the realm cross-references itself.
           </p>
           <div className="pillar-mock" style={{
-            background: 'radial-gradient(140% 100% at 50% 0%, oklch(0.92 0.045 84), oklch(0.82 0.060 78))',
-            display: 'grid', placeItems: 'center', color: 'var(--ink)',
-            fontFamily: 'var(--f-display)', fontStyle: 'italic',
+              background: 'radial-gradient(140% 100% at 50% 0%, oklch(0.92 0.045 84), oklch(0.82 0.060 78))',
+              display: 'grid', placeItems: 'center', color: 'var(--ink)',
+              fontFamily: 'var(--f-display)', fontStyle: 'italic',
           }}>
             <div style={{ textAlign: 'center', padding: '0 14px' }}>
               <span style={{ color: 'oklch(0.32 0.16 28)' }}>@Halsane</span> baptised <span style={{ color: 'oklch(0.32 0.16 28)' }}>@Theron</span> in his cradle.
@@ -312,8 +327,8 @@ function Pillars() {
             You see them all.
           </p>
           <div className="pillar-mock" style={{
-            background: 'radial-gradient(140% 80% at 50% 0%, oklch(0.30 0.05 30), oklch(0.20 0.04 30))',
-            display: 'grid', placeItems: 'center',
+              background: 'radial-gradient(140% 80% at 50% 0%, oklch(0.30 0.05 30), oklch(0.20 0.04 30))',
+              display: 'grid', placeItems: 'center',
           }}>
             <WaxSeal size={72} label="◆" />
           </div>
@@ -323,7 +338,7 @@ function Pillars() {
   );
 }
 
-// ── Living World ──────────────────────────────────────────────────────
+// ── Living World (interactive faction clock) ──────────────────────────
 function LivingWorld() {
   const [filled, setFilled] = React.useState(5);
   return (
@@ -350,7 +365,7 @@ function LivingWorld() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="r-btn ghost" onClick={() => setFilled(f => Math.max(0, f - 1))}>− Pull back</button>
-            <button className="r-btn red"   onClick={() => setFilled(f => Math.min(8, f + 1))}>Advance the march →</button>
+            <button className="r-btn red" onClick={() => setFilled(f => Math.min(8, f + 1))}>Advance the march →</button>
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--fg-3)', fontStyle: 'italic' }}>Try it — yes, it ticks for real.</div>
         </div>
@@ -359,14 +374,14 @@ function LivingWorld() {
   );
 }
 
-// ── Codex feature ─────────────────────────────────────────────────────
+// ── Codex with mention palette demo ───────────────────────────────────
 function CodexFeature() {
   return (
     <section className="section" id="codex">
       <div className="feature-row reverse">
         <div className="feature-text">
           <div className="eyebrow"><span className="roman">III.</span> The codex that links itself</div>
-          <h2>Type <em>@</em> and the realm <em>cross-references.</em></h2>
+          <h2>Type <em>@</em> and the realm <em>cross-references</em>.</h2>
           <p className="lede">
             Write a paragraph about a single innkeeper and you have written a thread that pulls on twelve other articles.
           </p>
@@ -400,6 +415,7 @@ function CodexFeature() {
               She has not lit the lantern these three nights.
             </p>
 
+            {/* embedded sealed secret */}
             <div className="embed-seal">
               <div className="seal-pellet">S</div>
               <div className="seal-txt">
@@ -417,7 +433,7 @@ function CodexFeature() {
             </p>
           </div>
 
-          {/* mention palette */}
+          {/* the mention palette popover */}
           <div className="mention-palette">
             <div className="mp-search"><b>@con</b><span style={{ marginLeft: 4, opacity: 0.5 }}>|</span></div>
             <div className="mp-list">
@@ -449,7 +465,7 @@ function CodexFeature() {
   );
 }
 
-// ── Vault ─────────────────────────────────────────────────────────────
+// ── Vault — interactive crack-open ────────────────────────────────────
 function VaultFeature() {
   const [open, setOpen] = React.useState(false);
   return (
@@ -475,12 +491,8 @@ function VaultFeature() {
           <div className={`vault-card ${open ? 'open' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
             <div className="stamp"><WaxSeal size={80} broken={open} label="C" /></div>
             <div className="v-eyebrow">Campaign · {open ? 'cracked' : 'sealed'}</div>
-            <div className="v-title">
-              {open ? "The Regent ordered the regicide." : "Something held by the king. Something kept by the keeper."}
-            </div>
-            <div className="v-meta">
-              {open ? 'revealed when the ledger is read in full' : '— click the seal to break it —'}
-            </div>
+            <div className="v-title">{open ? "The Regent ordered the regicide." : "Something held by the king. Something kept by the keeper."}</div>
+            <div className="v-meta">{open ? 'revealed when the ledger is read in full' : '— click the seal to break it —'}</div>
           </div>
         </div>
       </div>
@@ -489,10 +501,33 @@ function VaultFeature() {
 }
 
 // ── Cartography ───────────────────────────────────────────────────────
+function Cartography() {
+  return (
+    <section className="section" id="map">
+      <div className="feature-row reverse">
+        <div className="feature-text">
+          <div className="eyebrow"><span className="roman">V.</span> Cartography</div>
+          <h2>A war table you can <em>pin to.</em></h2>
+          <p className="lede">
+            Maps that look like maps. Pins that open the article. Layers you toggle off for the player view.
+          </p>
+          <ul className="feature-bullets">
+            <li>Parchment maps with ink rivers, hatched coasts, region labels, compass rose</li>
+            <li>DM-only pins: hidden libraries, omen-sightings, dangers — invisible to the player layer</li>
+            <li>Click any pin to open its codex page. Drag it. Mark it deceased. Move it across the realm.</li>
+          </ul>
+        </div>
+        <MapPreview />
+      </div>
+    </section>
+  );
+}
+
 function MapPreview() {
   return (
     <div style={{
-      borderRadius: 'var(--r-lg)', overflow: 'hidden',
+      borderRadius: 'var(--r-lg)',
+      overflow: 'hidden',
       border: '1px solid var(--royal-gold-dim)',
       boxShadow: '0 30px 60px -30px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0 0 0 / 0.45)',
     }}>
@@ -516,24 +551,21 @@ function MapPreview() {
         </defs>
         <rect width="600" height="420" fill="url(#ml-paper)" />
         <rect width="600" height="420" fill="url(#ml-hatch)" opacity="0.7" />
-        {/* coast/sea border east */}
         <path d="M 540 30 C 510 90, 580 160, 550 240 C 530 320, 580 380, 530 410"
               stroke="oklch(0.22 0.06 40)" strokeWidth="1.4" fill="none" opacity="0.65" />
         <path d="M 540 30 C 510 90, 580 160, 550 240 C 530 320, 580 380, 530 410 L 600 420 L 600 0 L 555 0 Z"
               fill="url(#ml-water)" opacity="0.9" />
-        {/* rivers */}
         <path d="M 290 80 Q 310 160, 270 230 T 240 350" stroke="oklch(0.42 0.08 235 / 0.65)" strokeWidth="1.4" fill="none" />
         <path d="M 290 80 Q 360 130, 400 220 T 440 340" stroke="oklch(0.42 0.08 235 / 0.55)" strokeWidth="1.1" fill="none" />
-        {/* region labels */}
         <text x="380" y="150" fontFamily="Cormorant Garamond, serif" fontSize="13" fontStyle="italic" fill="oklch(0.22 0.06 40)" opacity="0.6" letterSpacing="2">Vaelthorne</text>
-        <text x="60"  y="370" fontFamily="Cormorant Garamond, serif" fontSize="13" fontStyle="italic" fill="oklch(0.22 0.06 40)" opacity="0.6" letterSpacing="2">The Margreave</text>
+        <text x="60" y="370" fontFamily="Cormorant Garamond, serif" fontSize="13" fontStyle="italic" fill="oklch(0.22 0.06 40)" opacity="0.6" letterSpacing="2">The Margreave</text>
         {/* pins */}
         {[
-          { x: 310, y: 140, label: 'Cinderhold',      col: 'oklch(0.42 0.13 26)' },
-          { x: 480, y: 200, label: 'Greymarch',        col: 'oklch(0.32 0.014 60)' },
-          { x: 220, y: 260, label: 'Ashen Hollow',     party: true },
-          { x: 420, y: 320, label: 'Tidefast',         col: 'oklch(0.42 0.07 150)' },
-          { x: 350, y: 50,  label: 'Garden of Asters', col: 'oklch(0.32 0.06 30)' },
+          { x: 310, y: 140, label: 'Cinderhold', col: 'oklch(0.42 0.13 26)' },
+          { x: 480, y: 200, label: 'Greymarch', col: 'oklch(0.32 0.014 60)' },
+          { x: 220, y: 260, label: 'Ashen Hollow', party: true },
+          { x: 420, y: 320, label: 'Tidefast', col: 'oklch(0.42 0.07 150)' },
+          { x: 350, y: 50, label: 'Garden of Asters', col: 'oklch(0.32 0.06 30)' },
         ].map((p, i) => (
           <g key={i} transform={`translate(${p.x}, ${p.y})`}>
             {p.party && (
@@ -542,8 +574,7 @@ function MapPreview() {
                 <animate attributeName="opacity" values="1;0.2;1" dur="3s" repeatCount="indefinite" />
               </circle>
             )}
-            <circle r={p.party ? 7 : 6} fill={p.party ? 'oklch(0.92 0.04 80)' : p.col}
-                    stroke={p.party ? 'oklch(0.32 0.13 26)' : 'oklch(0.16 0.04 30)'} strokeWidth="1.2" />
+            <circle r={p.party ? 7 : 6} fill={p.party ? 'oklch(0.92 0.04 80)' : p.col} stroke={p.party ? 'oklch(0.32 0.13 26)' : 'oklch(0.16 0.04 30)'} strokeWidth="1.2" />
             {p.party && <circle r="3" fill="oklch(0.42 0.13 26)" />}
             <text x="10" y="4" fontFamily="Cormorant Garamond, serif" fontSize="12" fontWeight="500"
                   fill={p.party ? 'oklch(0.32 0.13 26)' : 'oklch(0.22 0.06 40)'}>{p.label}</text>
@@ -561,49 +592,27 @@ function MapPreview() {
   );
 }
 
-function Cartography() {
-  return (
-    <section className="section" id="map">
-      <div className="feature-row reverse">
-        <div className="feature-text">
-          <div className="eyebrow"><span className="roman">V.</span> Cartography</div>
-          <h2>A war table you can <em>pin to.</em></h2>
-          <p className="lede">
-            Maps that look like maps. Pins that open the article. Layers you toggle off for the player view.
-          </p>
-          <ul className="feature-bullets">
-            <li>Parchment maps with ink rivers, hatched coasts, region labels, compass rose</li>
-            <li>DM-only pins: hidden libraries, omen-sightings, dangers — invisible to the player layer</li>
-            <li>Click any pin to open its codex page. Drag it. Mark it deceased. Move it across the realm.</li>
-          </ul>
-        </div>
-        <MapPreview />
-      </div>
-    </section>
-  );
-}
-
-// ── By Royal Decree ───────────────────────────────────────────────────
+// ── By Royal Decree — numbered manifest of features ───────────────────
 function ByRoyalDecree() {
   const items = [
-    { roman: 'I.',    title: 'War Room dashboard',     desc: 'A single-screen launchpad for any session. Faction clocks, party position, sealed teasers, rumor reel.' },
-    { roman: 'II.',   title: 'Codex with @-linking',   desc: 'Every name a link. Bidirectional. Backlinks every page.' },
-    { roman: 'III.',  title: 'Sealed Secrets Vault',   desc: 'Inline secret blocks with reveal conditions. Wax breaks where the condition resolves.' },
-    { roman: 'IV.',   title: 'Faction clocks',         desc: '4/6/8-segment ritual circles. Living world ticks on its own cadence.' },
-    { roman: 'V.',    title: 'Cartography',            desc: 'Parchment maps with DM-only pins, layer toggles, and a separate player view.' },
-    { roman: 'VI.',   title: 'Relationship board',     desc: 'A conspiracy board of blood, love, debt, enmity, and secret threads. Hover to isolate.' },
-    { roman: 'VII.',  title: 'Timeline chronicle',     desc: 'Roman-numeral medallions along a brass spine. Branches for what-the-chronicle-omits.' },
-    { roman: 'VIII.', title: 'Session prep template',  desc: 'A new session document seeded with expected NPCs, locations, and current clock states.' },
-    { roman: 'IX.',   title: 'Handouts & Player View', desc: 'Push a sealed envelope to the player layer with one click. Pull it back the next morning.' },
-    { roman: 'X.',    title: 'Random tables & rolls',  desc: 'Tavern names, hooks, omens, dice. Built-in. Local. No network round-trip.' },
-    { roman: 'XI.',   title: 'Local-first storage',    desc: 'Your campaign lives on your machine. Export to one file. Cloud-sync optional.' },
-    { roman: 'XII.',  title: 'No player accounts',     desc: 'There is one DM. There are no other DMs. There are no players. The tool agrees.' },
+    { roman: 'I.',   title: 'War Room dashboard',      desc: 'A single-screen launchpad for any session. Faction clocks, party position, sealed teasers, rumor reel.' },
+    { roman: 'II.',  title: 'Codex with @-linking',    desc: 'Every name a link. Bidirectional. Backlinks every page.' },
+    { roman: 'III.', title: 'Sealed Secrets Vault',    desc: 'Inline secret blocks with reveal conditions. Wax breaks where the condition resolves.' },
+    { roman: 'IV.',  title: 'Faction clocks',          desc: '4/6/8-segment ritual circles. Living world tick on their own cadence.' },
+    { roman: 'V.',   title: 'Cartography',             desc: 'Parchment maps with DM-only pins, layer toggles, and a separate player view.' },
+    { roman: 'VI.',  title: 'Relationship board',      desc: 'A conspiracy board of blood, love, debt, enmity, and secret threads. Hover to isolate.' },
+    { roman: 'VII.', title: 'Timeline chronicle',      desc: 'Roman-numeral medallions along a brass spine. Branches for what-the-chronicle-omits.' },
+    { roman: 'VIII.',title: 'Session prep template',   desc: 'A new session document seeded with expected NPCs, locations, and current clock states.' },
+    { roman: 'IX.',  title: 'Handouts & Player View',  desc: 'Push a sealed envelope to the player layer with one click. Pull it back the next morning.' },
+    { roman: 'X.',   title: 'Random tables & rolls',   desc: 'Tavern names, hooks, omens, dice. Built-in. Local. No network round-trip.' },
+    { roman: 'XI.',  title: 'Local-first storage',     desc: 'Your campaign lives on your machine. Export to one file. Cloud-sync optional.' },
+    { roman: 'XII.', title: 'No player accounts',      desc: 'There is one DM. There are no other DMs. There are no players. The tool agrees.' },
   ];
   return (
     <section className="section" id="decree">
       <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 0' }}>
         <div className="eyebrow"><span className="roman">VI.</span> By royal decree</div>
-        <h2 className="display-h">What the war room <em>holds.</em></h2>
+        <h2 className="display-h">What the war room <em>holds</em>.</h2>
         <div className="lede" style={{ margin: '0 auto' }}>
           Twelve articles of governance, signed in brass.
         </div>
@@ -623,7 +632,7 @@ function ByRoyalDecree() {
   );
 }
 
-// ── Testimonials ──────────────────────────────────────────────────────
+// ── DMs Attest (testimonials) ─────────────────────────────────────────
 function Attest() {
   return (
     <section className="section" id="attest">
@@ -661,7 +670,7 @@ function Tiers() {
     <section className="section" id="tiers">
       <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
         <div className="eyebrow"><span className="roman">VIII.</span> By the realm's coin</div>
-        <h2 className="display-h">Three <em>ranks.</em> Pay what becomes you.</h2>
+        <h2 className="display-h">Three <em>ranks</em>. Pay what becomes you.</h2>
         <div className="lede" style={{ margin: '0 auto' }}>
           One DM per campaign. No seats. No add-ons. No surprise.
         </div>
@@ -681,7 +690,7 @@ function Tiers() {
             <li className="muted">Player view portal</li>
             <li className="muted">Cloud sync</li>
           </ul>
-          <a href="demo.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Begin a campaign</a>
+          <a href="Demo - The Tool.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Begin a campaign</a>
         </div>
 
         <div className="tier featured">
@@ -699,7 +708,7 @@ function Tiers() {
             <li>Random tables &amp; generators</li>
             <li className="muted">Co-DM / scribe seats</li>
           </ul>
-          <a href="demo.html" className="r-btn gold" style={{ justifyContent: 'center' }}>Swear the oath →</a>
+          <a href="Demo - The Tool.html" className="r-btn gold" style={{ justifyContent: 'center' }}>Swear the oath →</a>
         </div>
 
         <div className="tier">
@@ -716,7 +725,7 @@ function Tiers() {
             <li>Priority quills (support)</li>
             <li>Export to PDF, EPUB, &amp; Foundry</li>
           </ul>
-          <a href="demo.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Take the throne</a>
+          <a href="Demo - The Tool.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Take the throne</a>
         </div>
       </div>
     </section>
@@ -728,7 +737,7 @@ function FAQ() {
   const items = [
     {
       q: 'Is this for any tabletop system?',
-      a: "Yes. The Codex is system-agnostic — there are no class fields, no rule lookups, no stat blocks unless you write them. If you run 5e, PF2, BitD, Mörk Borg, or a system of your own invention, the war room won't argue with you.",
+      a: "Yes. The Codex is system-agnostic — there are no class fields, no rule lookups, no stat blocks unless you write them. We assume you know what your party can do. If you run 5e, PF2, BitD, Mörk Borg, or a system of your own invention, the war room won't argue with you.",
     },
     {
       q: 'Do my players get logins?',
@@ -769,7 +778,7 @@ function FAQ() {
   );
 }
 
-// ── Founder Note ──────────────────────────────────────────────────────
+// ── Founder note ─────────────────────────────────────────────────────
 function FounderNote() {
   return (
     <section className="section tight" id="founder">
@@ -797,7 +806,7 @@ function FounderNote() {
   );
 }
 
-// ── Last CTA ──────────────────────────────────────────────────────────
+// ── Last CTA ─────────────────────────────────────────────────────────
 function LastCTA() {
   return (
     <section className="last-cta">
@@ -807,14 +816,14 @@ function LastCTA() {
       <h2>Open the war room.<br /><em>The realm is waiting.</em></h2>
       <p>One DM. One window. One realm that keeps its own counsel.</p>
       <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-        <a href="demo.html" className="r-btn gold">Begin a campaign <span className="arrow">→</span></a>
+        <a href="Demo - The Tool.html" className="r-btn gold">Begin a campaign <span className="arrow">→</span></a>
         <a href="#pillars" className="r-btn ghost">Walk the rooms again</a>
       </div>
     </section>
   );
 }
 
-// ── Footer ────────────────────────────────────────────────────────────
+// ── Footer ───────────────────────────────────────────────────────────
 function SiteFoot() {
   return (
     <footer className="site-foot">
@@ -844,7 +853,7 @@ function SiteFoot() {
           <a href="#tiers">Tiers</a>
           <a href="#attest">Letters</a>
           <a href="#faq">FAQ</a>
-          <a href="demo.html">Live demo</a>
+          <a href="Demo - The Tool.html">Live demo</a>
         </div>
         <div>
           <h5>The Keep</h5>
@@ -862,7 +871,7 @@ function SiteFoot() {
   );
 }
 
-// ── App root ──────────────────────────────────────────────────────────
+// ── App root ─────────────────────────────────────────────────────────
 function SiteApp() {
   return (
     <div className="site">
