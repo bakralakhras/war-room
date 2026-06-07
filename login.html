@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>War Room — Sign In</title>
+  <title>War Room - Sign In</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="login.css" />
-  <script src="auth.js"></script>
+  <link rel="stylesheet" href="login.css?v=table-demo-2" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js?v=table-demo-2"></script>
 </head>
 <body>
 
 <div class="auth-wrap">
-
-  <!-- Brand -->
   <div class="auth-brand">
     <div class="auth-brand-icon">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
@@ -26,32 +26,34 @@
     <div class="auth-brand-sub">For Dungeon Masters only.</div>
   </div>
 
-  <!-- Card -->
   <div class="auth-card">
     <div class="auth-tabs">
       <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</div>
-      <div class="auth-tab"        id="tab-register" onclick="switchTab('register')">Register</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</div>
     </div>
 
-    <!-- Login form -->
+    <div class="auth-msg info" id="session-msg" style="display:none"></div>
+
     <form class="auth-form" id="form-login" onsubmit="handleLogin(event)">
       <div class="field">
-        <label for="login-username">Username</label>
-        <input id="login-username" type="text" placeholder="your username" autocomplete="username" />
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="field">
         <label for="login-password">Password</label>
-        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        <input id="login-password" type="password" placeholder="password" autocomplete="current-password" />
       </div>
       <div class="auth-msg" id="login-msg"></div>
       <button class="auth-submit" type="submit" id="login-btn">Enter the War Room</button>
+      <button class="auth-submit auth-demo" type="button" onclick="return enterDemo(event)">
+        Enter demo as Ardenna, DM
+      </button>
     </form>
 
-    <!-- Register form -->
     <form class="auth-form auth-hidden" id="form-register" onsubmit="handleRegister(event)">
       <div class="field">
-        <label for="reg-username">Username</label>
-        <input id="reg-username" type="text" placeholder="choose a username" autocomplete="username" />
+        <label for="reg-email">Email</label>
+        <input id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="field">
         <label for="reg-display">Display name <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
@@ -71,13 +73,23 @@
       <span class="auth-footer-dot"></span>
     </div>
   </div>
-
 </div>
 
 <script>
-  // Redirect if already logged in
-  if (window.Auth.session) {
-    window.location.href = 'demo.html';
+  window.Auth.init().then(session => {
+    if (!session) return;
+    const msg = document.getElementById('session-msg');
+    msg.style.display = 'block';
+    msg.innerHTML = `Signed in as ${session.displayName}. <a href="demo.html">Continue to War Room</a> - <a href="#" onclick="return enterDemo(event)">Enter Ardenna demo</a> - <a href="#" onclick="window.Auth.logout(); return false;">Sign out</a>`;
+  });
+
+  function enterDemo(event) {
+    if (event) event.preventDefault();
+    if (!window.Auth || typeof window.Auth.demoLogin !== 'function') {
+      showMsg('login-msg', 'Demo auth did not load. Refresh and try again.', 'error');
+      return false;
+    }
+    return window.Auth.demoLogin('dm');
   }
 
   function switchTab(tab) {
@@ -107,20 +119,20 @@
     e.preventDefault();
     const btn = document.getElementById('login-btn');
     btn.disabled = true;
-    btn.textContent = 'Entering…';
+    btn.textContent = 'Entering...';
     clearMsg();
 
-    const username = document.getElementById('login-username').value.trim();
+    const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
 
-    if (!username || !password) {
+    if (!email || !password) {
       showMsg('login-msg', 'Please fill in both fields.');
       btn.disabled = false;
       btn.textContent = 'Enter the War Room';
       return;
     }
 
-    const result = await window.Auth.login(username, password);
+    const result = await window.Auth.login(email, password);
     if (result.ok) {
       window.location.href = 'demo.html';
     } else {
@@ -134,14 +146,14 @@
     e.preventDefault();
     const btn = document.getElementById('register-btn');
     btn.disabled = true;
-    btn.textContent = 'Creating…';
+    btn.textContent = 'Creating...';
     clearMsg();
 
-    const username    = document.getElementById('reg-username').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
     const displayName = document.getElementById('reg-display').value.trim();
-    const password    = document.getElementById('reg-password').value;
+    const password = document.getElementById('reg-password').value;
 
-    const result = await window.Auth.register(username, password, displayName);
+    const result = await window.Auth.register(email, password, displayName);
     if (result.ok) {
       window.location.href = 'demo.html';
     } else {

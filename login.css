@@ -170,6 +170,15 @@ body::before {
 
 .auth-submit:hover { background: oklch(0.78 0.100 85); }
 .auth-submit:disabled { opacity: 0.5; cursor: default; }
+.auth-submit.auth-demo {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--brass-dim);
+  color: var(--brass);
+}
+.auth-submit.auth-demo:hover {
+  background: oklch(0.42 0.08 80 / 0.16);
+}
 
 /* ── Error / info messages ────────────────────────────────────── */
 .auth-msg {
