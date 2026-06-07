@@ -1,13 +1,18 @@
-// World Codex — wiki-style note editor with auto-linking, backlinks, DM blocks, templates, folders.
+// World Codex — DM-only campaign bible with auto-linking, backlinks, templates, folders.
 
 // ── Constants ─────────────────────────────────────────────────────────
 const CODEX_TYPES = [
   { id: 'lore',      label: 'Lore',      glyph: '❦',  color: 'var(--brass)' },
+  { id: 'history',   label: 'History',   glyph: '◇',  color: 'oklch(0.74 0.08 85)' },
   { id: 'character', label: 'Character', glyph: '◐',  color: 'var(--brass)' },
   { id: 'place',     label: 'Place',     glyph: '◇',  color: 'oklch(0.70 0.09 145)' },
   { id: 'faction',   label: 'Faction',   glyph: '✦',  color: 'oklch(0.72 0.12 28)' },
   { id: 'mystery',   label: 'Mystery',   glyph: '☽',  color: 'var(--slate)' },
   { id: 'prophecy',  label: 'Prophecy',  glyph: '✧',  color: 'var(--slate)' },
+  { id: 'religion',  label: 'Religion',  glyph: '✶',  color: 'oklch(0.70 0.09 235)' },
+  { id: 'relic',     label: 'Relic',     glyph: '◈',  color: 'oklch(0.76 0.12 72)' },
+  { id: 'secret',    label: 'Secret',    glyph: '◆',  color: 'oklch(0.72 0.14 28)' },
+  { id: 'quest',     label: 'Quest',     glyph: '⚔',  color: 'oklch(0.70 0.10 145)' },
   { id: 'session',   label: 'Session',   glyph: '◈',  color: 'var(--amber)' },
 ];
 
@@ -22,10 +27,8 @@ const CODEX_TEMPLATES = {
 ## Significance
 
 
-## DM Notes
-[DM]
-
-[/DM]`,
+## Keeper Notes
+`,
   character:
 `## Voice & Manner
 
@@ -34,9 +37,8 @@ const CODEX_TEMPLATES = {
 
 
 ## What They're Hiding
-[DM]
 
-[/DM]
+
 ## Key Relationships
 
 
@@ -53,9 +55,8 @@ const CODEX_TEMPLATES = {
 
 
 ## What's Hidden
-[DM]
 
-[/DM]
+
 ## History
 `,
   faction:
@@ -69,9 +70,8 @@ const CODEX_TEMPLATES = {
 
 
 ## Secrets
-[DM]
 
-[/DM]
+
 ## Resources
 `,
   mystery:
@@ -79,9 +79,8 @@ const CODEX_TEMPLATES = {
 
 
 ## What Actually Happened
-[DM]
 
-[/DM]
+
 ## Clues Available
 
 
@@ -92,9 +91,8 @@ const CODEX_TEMPLATES = {
 
 
 ## True Meaning
-[DM]
 
-[/DM]
+
 ## How It Was Delivered
 
 
@@ -110,28 +108,131 @@ const CODEX_TEMPLATES = {
 ## World Changes
 
 
-## DM Notes
-[DM]
+## Keeper Notes
 
-[/DM]
+
 ## Next Session Setup
+`,
+  history:
+`## Canon
+
+
+## Timeline
+
+
+## Who still cares
+
+
+## Keeper notes
+`,
+  religion:
+`## Doctrine
+
+
+## Rites & taboos
+
+
+## Important faithful
+
+
+## Keeper notes
+`,
+  relic:
+`## Description
+
+
+## Powers, costs, tells
+
+
+## Current holder
+
+
+## Keeper notes
+`,
+  secret:
+`## Surface truth
+
+
+## Real truth
+
+
+## Clues
+
+
+## Consequences if revealed
+`,
+  quest:
+`## Hook
+
+
+## Next actionable step
+
+
+## Stakes
+
+
+## Keeper notes
 `,
 };
 
-const CX_FOLDERS = ['Lore', 'Characters', 'Locations', 'Factions', 'Session Notes', 'Mysteries'];
+const CX_FOLDERS = ['Lore', 'Characters', 'Locations', 'Factions', 'Relics', 'Session Notes', 'Mysteries', 'Secrets', 'Quests'];
 
 // ── Utilities ─────────────────────────────────────────────────────────
 
 function collectEntities(state) {
   const ents = [];
-  (state.npcs || []).forEach(n => { if (n.name) ents.push({ id: n.id, name: n.name, kind: 'person' }); });
-  (state.factions || []).forEach(f => { if (f.name) ents.push({ id: f.id, name: f.name, kind: 'faction' }); });
+  (state.npcs || []).forEach(n => { if (n.name) ents.push({ id: n.id, name: n.name, kind: 'person', source: 'npc', sub: n.title || n.faction || '' }); });
+  (state.factions || []).forEach(f => { if (f.name) ents.push({ id: f.id, name: f.name, kind: 'faction', source: 'faction', sub: f.ideology || f.leader || '' }); });
   (state.locations || []).forEach(l => {
     const nm = l.label || l.name;
-    if (nm) ents.push({ id: l.id, name: nm, kind: 'place' });
+    if (nm) ents.push({ id: l.id, name: nm, kind: 'place', source: 'location', sub: l.region || l.kind || '' });
   });
-  (state.codex || []).forEach(e => { if (e.title) ents.push({ id: e.id, name: e.title, kind: e.type || 'lore' }); });
+  (state.relics || []).forEach(r => { if (r.name) ents.push({ id: r.id, name: r.name, kind: 'relic', source: 'relic', sub: r.type || r.kind || '' }); });
+  (state.religions || []).forEach(r => { if (r.name) ents.push({ id: r.id, name: r.name, kind: 'religion', source: 'religion', sub: r.kind || '' }); });
+  (state.lore || []).forEach(l => { if (l.name) ents.push({ id: l.id, name: l.name, kind: 'history', source: 'lore', sub: l.kind || '' }); });
+  (state.secrets || []).forEach(s => { if (s.title) ents.push({ id: s.id, name: s.title, kind: 'secret', source: 'secret', sub: s.status || s.weight || '' }); });
+  (state.quests || []).forEach(q => { if (q.title) ents.push({ id: q.id, name: q.title, kind: 'quest', source: 'quest', sub: q.state || q.arc || '' }); });
+  (state.sessions || []).forEach(s => { if (s.title) ents.push({ id: s.id, name: s.title, kind: 'session', source: 'session', sub: `Session ${s.number || ''}`.trim() }); });
+  (state.codex || []).forEach(e => { if (e.title) ents.push({ id: e.id, name: e.title, kind: e.type || 'lore', source: 'codex', sub: e.folder || '' }); });
   return ents.filter(e => e.name && e.name.length > 2);
+}
+
+function entityTypeInfo(kind) {
+  if (kind === 'person') return CODEX_TYPES.find(t => t.id === 'character') || CODEX_TYPES[0];
+  return CODEX_TYPES.find(t => t.id === kind) || CODEX_TYPES[0];
+}
+
+function openCodexEntity(ent, handlers) {
+  if (!ent) return;
+  if (ent.source === 'npc' && handlers.onOpenNPC) handlers.onOpenNPC(ent.id);
+  else if (ent.source === 'faction' && handlers.onOpenFaction) handlers.onOpenFaction(ent.id);
+  else if (ent.source === 'secret' && handlers.onOpenSecret) handlers.onOpenSecret(ent.id);
+  else if (ent.source === 'location' && handlers.onNav) handlers.onNav('maps', { highlight: ent.id });
+  else if (ent.source === 'quest' && handlers.onNav) handlers.onNav('quests', { highlight: ent.id });
+  else if ((ent.source === 'relic' || ent.source === 'religion' || ent.source === 'lore') && handlers.onNav) {
+    const codexId = 'codex-' + ent.id;
+    handlers.onNav('codex', { highlight: codexId });
+  } else if (ent.source === 'codex' && handlers.onSelect) {
+    handlers.onSelect(ent.id);
+  }
+}
+
+function folderForCodexType(type) {
+  const map = {
+    character: 'Characters',
+    place: 'Locations',
+    faction: 'Factions',
+    relic: 'Relics',
+    session: 'Session Notes',
+    mystery: 'Mysteries',
+    prophecy: 'Mysteries',
+    secret: 'Secrets',
+    quest: 'Quests',
+    religion: 'Lore',
+    history: 'Lore',
+    lore: 'Lore',
+  };
+  return map[type] || 'Lore';
 }
 
 function computeBacklinks(entryId, entryTitle, allEntries) {
@@ -143,12 +244,42 @@ function computeBacklinks(entryId, entryTitle, allEntries) {
     .map(e => ({ id: e.id, title: e.title, type: e.type }));
 }
 
-// Build highlighted HTML — entity auto-links, DM blocks, headers.
-function buildHighlight(text, entities) {
-  let out = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function findCampaignThreads(entry, state) {
+  const haystack = `${entry.title || ''}\n${entry.body || ''}`.toLowerCase();
+  const mentions = (value) => value && haystack.includes(String(value).toLowerCase());
+  const rows = [];
 
-  // DM blocks first
-  out = out.replace(/\[DM\]([\s\S]*?)\[\/DM\]/g, '<span class="cx-dm">[DM]$1[/DM]</span>');
+  (state.secrets || []).forEach(s => {
+    if (mentions(s.title) || (s.relates || []).some(mentions)) {
+      rows.push({ id: s.id, kind: 'secret', title: s.title, meta: s.status || s.weight, source: 'secret' });
+    }
+  });
+  (state.quests || []).forEach(q => {
+    if (mentions(q.title) || mentions(q.giver) || mentions(q.next) || mentions(q.stakes)) {
+      rows.push({ id: q.id, kind: 'quest', title: q.title, meta: q.state || q.arc, source: 'quest' });
+    }
+  });
+  (state.rumors || []).forEach(r => {
+    if (mentions(r.text) || mentions(r.source) || (r.relates || []).some(mentions)) {
+      rows.push({ id: r.id, kind: 'lore', title: r.text, meta: r.delivered ? 'delivered rumor' : 'undelivered rumor', source: 'rumor' });
+    }
+  });
+  (state.prep || []).forEach(p => {
+    if (mentions(p.title) || mentions(p.note)) {
+      rows.push({ id: p.id, kind: 'session', title: p.title, meta: p.done ? 'done prep' : 'open prep', source: 'prep' });
+    }
+  });
+
+  return rows.slice(0, 8);
+}
+
+// Build highlighted HTML — entity auto-links and headers.
+function stripLegacyDmTags(text) {
+  return String(text || '').replace(/\[\/?DM\]/g, '').replace(/\n{4,}/g, '\n\n\n');
+}
+
+function buildHighlight(text, entities) {
+  let out = stripLegacyDmTags(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // Headers
   out = out.replace(/^(## .+)$/gm, '<span class="cx-h2">$1</span>');
@@ -166,7 +297,7 @@ function buildHighlight(text, entities) {
 }
 
 // ── WorldCodex ────────────────────────────────────────────────────────
-function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, highlight }) {
+function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, highlight }) {
   const entries  = React.useMemo(() => state.codex || [], [state.codex]);
   const entities = React.useMemo(() => collectEntities(state), [state]);
 
@@ -198,7 +329,7 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, highlight }) {
   }), [entries, folderFilter, search]);
 
   const createNew = (type = 'lore') => {
-    const folder = (folderFilter && folderFilter !== '__uncat__') ? folderFilter : '';
+    const folder = (folderFilter && folderFilter !== '__uncat__') ? folderFilter : folderForCodexType(type);
     window.Store.dispatch({
       type: 'CODEX_ADD',
       title: 'Untitled ' + (CODEX_TYPES.find(t => t.id === type)?.label || 'Note'),
@@ -236,6 +367,8 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, highlight }) {
           allEntries={entries}
           entities={entities}
           state={state}
+          onSelect={setSelectedId}
+          onNav={onNav}
           onDelete={() => {
             window.Store.dispatch({ type: 'CODEX_REMOVE', id: selectedEntry.id });
             const rem = entries.filter(e => e.id !== selectedEntry.id);
@@ -243,6 +376,7 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, highlight }) {
           }}
           onOpenNPC={onOpenNPC}
           onOpenFaction={onOpenFaction}
+          onOpenSecret={onOpenSecret}
         />
       ) : (
         <CodexWelcome onNew={createNew} count={entries.length} />
@@ -356,9 +490,9 @@ function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSear
 }
 
 // ── CodexEditor ───────────────────────────────────────────────────────
-function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, onOpenFaction }) {
+function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
   const [title,   setTitle]   = React.useState(entry.title  || '');
-  const [body,    setBody]    = React.useState(entry.body   || '');
+  const [body,    setBody]    = React.useState(stripLegacyDmTags(entry.body));
   const [type,    setType]    = React.useState(entry.type   || 'lore');
   const [folder,  setFolder]  = React.useState(entry.folder || '');
   const [tags,    setTags]    = React.useState(entry.tags   || []);
@@ -368,22 +502,41 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
   const [attrV,   setAttrV]   = React.useState('');
   const [saved,   setSaved]   = React.useState(true);
   const [preview, setPreview] = React.useState(false);
-  const timer   = React.useRef(null);
+  const [deleteArmed, setDeleteArmed] = React.useState(false);
+  const timers  = React.useRef({});
   const bodyRef = React.useRef(null);
+
+  const clearFieldTimer = (field) => {
+    if (!timers.current[field]) return;
+    clearTimeout(timers.current[field]);
+    delete timers.current[field];
+  };
+
+  const clearAllTimers = () => {
+    Object.keys(timers.current).forEach(clearFieldTimer);
+  };
+
+  React.useEffect(() => () => clearAllTimers(), []);
 
   const autosave = (field, val) => {
     setSaved(false);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+    clearFieldTimer(field);
+    timers.current[field] = setTimeout(() => {
       window.Store.dispatch({ type: 'CODEX_SET_FIELD', id: entry.id, field, value: val });
-      setSaved(true);
+      delete timers.current[field];
+      setSaved(Object.keys(timers.current).length === 0);
     }, 480);
   };
 
   const immediate = (field, val) => {
-    clearTimeout(timer.current);
+    clearFieldTimer(field);
     window.Store.dispatch({ type: 'CODEX_SET_FIELD', id: entry.id, field, value: val });
-    setSaved(true);
+    setSaved(Object.keys(timers.current).length === 0);
+  };
+
+  const deleteNote = () => {
+    clearAllTimers();
+    onDelete();
   };
 
   const backlinks = React.useMemo(
@@ -398,15 +551,8 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
       .slice(0, 10),
     [body, entities, entry.id]
   );
-
-  const insertDM = () => {
-    const ta = bodyRef.current;
-    if (!ta) return;
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    const sel = body.slice(s, e);
-    const next = body.slice(0, s) + `[DM]\n${sel || ''}\n[/DM]` + body.slice(e);
-    setBody(next); autosave('body', next);
-  };
+  const campaignThreads = React.useMemo(() => findCampaignThreads({ ...entry, title, body }, state), [entry, title, body, state]);
+  const handlers = { onSelect, onNav, onOpenNPC, onOpenFaction, onOpenSecret };
 
   const addTag = () => {
     const t = tagIn.trim();
@@ -443,8 +589,16 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
             onClick={() => setPreview(v => !v)}>
             {preview ? '✎ Edit' : '◉ Preview'}
           </button>
-          <button className="tbtn" style={{ fontSize: 11.5, color: 'var(--crimson)' }}
-            onClick={() => { if (confirm('Delete this note?')) onDelete(); }}>✕</button>
+          <button className={`tbtn ${deleteArmed ? 'danger' : ''}`} style={{ fontSize: 11.5 }}
+            onClick={() => deleteArmed ? deleteNote() : setDeleteArmed(true)}>
+            {deleteArmed ? 'Confirm delete' : 'Delete note'}
+          </button>
+          {deleteArmed && (
+            <button className="tbtn" style={{ fontSize: 11.5 }}
+              onClick={() => setDeleteArmed(false)}>
+              Cancel
+            </button>
+          )}
         </div>
       </div>
 
@@ -477,10 +631,8 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
           ) : (
             <>
               <div className="cx-toolbar">
-                <button className="tbtn" style={{ fontSize: 11 }} onClick={insertDM}
-                  title="Wrap selected text in a DM-only block">🔒 DM block</button>
                 <span className="muted" style={{ fontSize: 10 }}>
-                  ## Heading · [DM]…[/DM] · entity names auto-highlight as you type
+                  This book is DM-only. Use ## headings; entity names auto-highlight as you type.
                 </span>
               </div>
               <CodexBodyEditor ref={bodyRef} value={body} entities={entities}
@@ -501,6 +653,30 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
 
         {/* Right panel */}
         <div className="cx-right">
+          <div className="cx-panel cx-note-controls">
+            <div className="cx-panel-hd">Note controls</div>
+            <div className="cx-control-stack">
+              <button className={`tbtn ${preview ? '' : 'brass'}`} onClick={() => setPreview(false)}>
+                Edit note
+              </button>
+              <button className={`tbtn ${preview ? 'brass' : ''}`} onClick={() => setPreview(true)}>
+                Preview note
+              </button>
+              <button className={`tbtn ${deleteArmed ? 'danger' : ''}`}
+                onClick={() => deleteArmed ? deleteNote() : setDeleteArmed(true)}>
+                {deleteArmed ? 'Confirm delete' : 'Delete note'}
+              </button>
+              {deleteArmed && (
+                <button className="tbtn" onClick={() => setDeleteArmed(false)}>
+                  Keep note
+                </button>
+              )}
+            </div>
+            <div className="cx-hint" style={{ padding: '8px 0 0' }}>
+              Edits autosave. Delete needs a second click so a stray hand does not burn the page.
+            </div>
+          </div>
+
           <div className="cx-panel">
             <div className="cx-panel-hd">Properties</div>
             {attrs.map((a, i) => (
@@ -539,26 +715,56 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onOpenNPC, 
           </div>
 
           <div className="cx-panel">
-            <div className="cx-panel-hd">Detected in text</div>
+            <div className="cx-panel-hd">Campaign links</div>
             {detected.length === 0
-              ? <div className="cx-hint">Entity names you write will appear here.</div>
+              ? <div className="cx-hint">Mention NPCs, factions, places, relics, secrets, or quests and they become jump links here.</div>
               : detected.map(ent => {
-                  const t = CODEX_TYPES.find(x => x.id === ent.kind) || CODEX_TYPES[0];
-                  const clickable = ent.kind === 'person' || ent.kind === 'faction';
+                  const t = entityTypeInfo(ent.kind);
                   return (
                     <div key={ent.id} className="cx-bl"
-                      style={{ cursor: clickable ? 'pointer' : 'default' }}
-                      onClick={() => {
-                        if (ent.kind === 'person' && onOpenNPC) onOpenNPC(ent.id);
-                        else if (ent.kind === 'faction' && onOpenFaction) onOpenFaction(ent.id);
-                      }}>
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => openCodexEntity(ent, handlers)}>
                       <span style={{ color: t.color, fontSize: 9, marginRight: 5 }}>{t.glyph}</span>
                       {ent.name}
-                      <span className="muted" style={{ fontSize: 9, marginLeft: 4 }}>{ent.kind}</span>
+                      <span className="muted" style={{ fontSize: 9, marginLeft: 4 }}>{ent.source}</span>
                     </div>
                   );
                 })
             }
+          </div>
+
+          <div className="cx-panel">
+            <div className="cx-panel-hd">
+              Live threads
+              {campaignThreads.length > 0 && <span className="cx-badge">{campaignThreads.length}</span>}
+            </div>
+            {campaignThreads.length === 0
+              ? <div className="cx-hint">Secrets, quests, rumors, and prep that mention this page will gather here.</div>
+              : campaignThreads.map(row => {
+                  const t = entityTypeInfo(row.kind);
+                  return (
+                    <div key={`${row.source}-${row.id}`} className="cx-bl"
+                      style={{ cursor: row.source === 'secret' || row.source === 'quest' ? 'pointer' : 'default' }}
+                      onClick={() => openCodexEntity({ ...row, name: row.title }, handlers)}>
+                      <span style={{ color: t.color, fontSize: 9, marginRight: 5 }}>{t.glyph}</span>
+                      <span style={{ flex: 1, minWidth: 0 }}>{row.title}</span>
+                      <span className="muted" style={{ fontSize: 9, marginLeft: 4 }}>{row.meta}</span>
+                    </div>
+                  );
+                })
+            }
+          </div>
+
+          <div className="cx-panel">
+            <div className="cx-panel-hd">Keeper actions</div>
+            <button className="tbtn" style={{ width: '100%', justifyContent: 'center', fontSize: 11.5, marginBottom: 6 }}
+              onClick={() => window.Store.dispatch({ type: 'PREP_ADD', kind: 'lore', title: title || 'Codex follow-up', note: `Review codex page: ${title || entry.id}` })}>
+              Send to prep
+            </button>
+            <button className="tbtn" style={{ width: '100%', justifyContent: 'center', fontSize: 11.5 }}
+              onClick={() => window.Store.dispatch({ type: 'SECRET_ADD', title: `${title || 'Codex'} truth`, weight: 'Lore', revealsTo: `When ${title || 'this lore'} matters at the table.`, relates: [entry.id] })}>
+              Seal as secret
+            </button>
           </div>
         </div>
       </div>
@@ -591,17 +797,7 @@ const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entit
 
 // ── CodexPreview ──────────────────────────────────────────────────────
 function CodexPreview({ title, body, typeInfo }) {
-  const segments = [];
-  let rest = body || '';
-  while (rest.length) {
-    const ds = rest.indexOf('[DM]'), de = rest.indexOf('[/DM]');
-    if (ds !== -1 && de !== -1 && ds < de) {
-      if (ds > 0) segments.push({ dm: false, text: rest.slice(0, ds) });
-      segments.push({ dm: true, text: rest.slice(ds + 4, de) });
-      rest = rest.slice(de + 5);
-    } else { segments.push({ dm: false, text: rest }); rest = ''; }
-  }
-
+  const cleanBody = stripLegacyDmTags(body);
   const renderLines = (text, pfx) =>
     text.split('\n').map((line, i) => {
       if (line.startsWith('## ')) return <div key={pfx + i} className="cx-pv-h2">{line.slice(3)}</div>;
@@ -615,14 +811,7 @@ function CodexPreview({ title, body, typeInfo }) {
       <div className="cx-pv-eyebrow" style={{ color: typeInfo.color }}>{typeInfo.glyph} {typeInfo.label}</div>
       <div className="cx-pv-title display">{title || 'Untitled'}</div>
       <div style={{ height: 16 }} />
-      {segments.map((seg, i) =>
-        seg.dm ? (
-          <div key={i} className="cx-pv-dm">
-            <span className="cx-pv-dm-badge">DM only</span>
-            {renderLines(seg.text, `d${i}-`)}
-          </div>
-        ) : renderLines(seg.text, `p${i}-`)
-      )}
+      {renderLines(cleanBody, 'p')}
     </div>
   );
 }

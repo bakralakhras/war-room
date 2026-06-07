@@ -20,7 +20,8 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
   const sessionNumber = Math.max(1, Number(c.session) || 1);
   const sessionLabel = toRoman(sessionNumber);
   const sessionTotal = c.sessionsTotal || '?';
-  const nextSession = cleanText(c.nextSession) || 'No next session scheduled';
+  const nextSessionText = window.formatNextSession12 ? window.formatNextSession12(c.nextSession) : c.nextSession;
+  const nextSession = cleanText(nextSessionText) || 'No next session scheduled';
   const partyLocation = locations.find(l => l.party);
   const partyPlace = cleanText(partyLocation?.label || partyLocation?.name || campaignLocation.name) || 'Unknown';
   const partyRegion = cleanText(partyLocation?.region || campaignLocation.region) || 'No region set';
@@ -36,6 +37,12 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
   const topFaction = factionClocks[0];
   const visibleSecrets = openSecrets.slice(0, 3);
   const visibleQuests = activeQuests.slice(0, 4);
+  const revealQueue = [...openSecrets]
+    .sort((a, b) => secretReadinessRank(a) - secretReadinessRank(b))
+    .slice(0, 2);
+  const dossierRumor = rumors[0] || null;
+  const dossierNpc = npcPreview[0] || null;
+  const dossierPressure = topFaction || null;
   const dmLines = buildDmLines({
     openSecrets: openSecrets.length,
     activeQuests: activeQuests.length,
@@ -116,7 +123,7 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                       <p style={{ margin: '6px 0 12px', fontSize: 13, lineHeight: 1.65 }}>
                         {leadPrep.note || 'This prep item has no note yet. Add the opening beat in Prep.'}
                       </p>
-                      <div className="quote" style={{ color: 'var(--ink-dim)', borderLeftColor: 'oklch(0.45 0.08 60 / 0.5)', fontSize: 13.5 }}>
+                      <div className="quote" style={{ color: 'var(--ink-dim)', borderLeftColor: 'var(--parch-rule)', fontSize: 13.5 }}>
                         {topFaction
                           ? `${topFaction.name} is closest to a clock payoff: ${safeClock(topFaction).label || 'unnamed clock'}.`
                           : 'No faction clock is driving pressure yet.'}
@@ -129,15 +136,15 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                     </div>
                   )}
                 </div>
-                <div style={{ flex: '0 1 240px', paddingLeft: 14, borderLeft: '1px dashed oklch(0.45 0.08 60 / 0.4)' }}>
-                  <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.42 0.13 28)', fontWeight: 700, marginBottom: 8 }}>
+                <div style={{ flex: '0 1 240px', paddingLeft: 14, borderLeft: '1px dashed var(--parch-rule)' }}>
+                  <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--parch-accent)', fontWeight: 700, marginBottom: 8 }}>
                     Beats to land
                   </div>
                   {beats.length ? beats.map((p, i) => (
-                    <div key={p.id || i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '5px 0', borderBottom: i < beats.length - 1 ? '1px dotted oklch(0.45 0.08 60 / 0.35)' : 'none' }}>
+                    <div key={p.id || i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '5px 0', borderBottom: i < beats.length - 1 ? '1px dotted var(--parch-rule)' : 'none' }}>
                       <span style={{
                         width: 6, height: 6, borderRadius: '50%',
-                        background: p.kind === 'scene' ? 'oklch(0.5 0.15 28)' : 'oklch(0.6 0.12 65)',
+                        background: p.kind === 'scene' ? 'var(--crimson)' : 'var(--brass)',
                         marginTop: 6, flexShrink: 0
                       }}></span>
                       <div style={{ fontSize: 11.5, lineHeight: 1.4, minWidth: 0 }}>
@@ -158,6 +165,95 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
               <button className="tbtn brass" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => onNav('sessions')}>
                 Open in session mode <Icon.Chevron />
               </button>
+            </div>
+          </div>
+
+          <div className="card cornered keeper-dossier">
+            <div className="head">
+              <Icon.Eye />
+              <span className="title herald">Tonight's Dossier</span>
+              <div className="spacer"></div>
+              <span className="smallcaps">run-ready prompts</span>
+            </div>
+            <div className="body">
+              <div className="dossier-grid">
+                <div className="dossier-cell primary">
+                  <div className="dossier-kicker">Reveal if they push</div>
+                  {revealQueue.length ? revealQueue.map(s => (
+                    <div key={s.id} className="dossier-row clickable" onClick={() => onOpenSecret(s.id)}>
+                      <div>
+                        <div className="dossier-title">{s.title || 'Untitled secret'}</div>
+                        <div className="dossier-note">{s.revealsTo || 'No reveal condition recorded.'}</div>
+                      </div>
+                      <span className={`pill ${s.status === 'cracked' ? 'ember' : 'ox'}`}>{s.status || 'sealed'}</span>
+                    </div>
+                  )) : (
+                    <div className="dossier-empty">No unrevealed secrets are loaded for tonight.</div>
+                  )}
+                  <button className="tbtn" onClick={() => onNav('secrets')}>
+                    Open the vault <Icon.Chevron />
+                  </button>
+                </div>
+
+                <div className="dossier-cell">
+                  <div className="dossier-kicker">Seed at the table</div>
+                  {dossierRumor ? (
+                    <>
+                      <div className="dossier-title">"{dossierRumor.text || 'No rumor text.'}"</div>
+                      <div className="dossier-note">- {dossierRumor.source || 'unknown source'} · {dossierRumor.weight || 'common'}</div>
+                      <div className="row gap-sm" style={{ marginTop: 10 }}>
+                        <button className="tbtn brass" onClick={() => window.Store.dispatch({ type: 'RUMOR_TOGGLE_DELIVERED', id: dossierRumor.id })}>
+                          Mark delivered
+                        </button>
+                        <button className="tbtn" onClick={() => onNav('rumors')}>All rumors</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="dossier-empty">No rumor is waiting to drop.</div>
+                  )}
+                </div>
+
+                <div className="dossier-cell">
+                  <div className="dossier-kicker">Move if they stall</div>
+                  {dossierPressure ? (
+                    <>
+                      <div className="dossier-title">{dossierPressure.name || 'Unnamed faction'}</div>
+                      <div className="dossier-note">
+                        {safeClock(dossierPressure).label || 'Unnamed clock'} · {safeClock(dossierPressure).filled}/{safeClock(dossierPressure).segments}
+                      </div>
+                      <div className="row gap-sm" style={{ marginTop: 10 }}>
+                        <button className="tbtn brass" onClick={() => {
+                          const clock = safeClock(dossierPressure);
+                          window.Store.dispatch({ type: 'FACTION_CLOCK_SET', id: dossierPressure.id, filled: Math.min(clock.segments, clock.filled + 1) });
+                        }}>
+                          Tick clock
+                        </button>
+                        <button className="tbtn" onClick={() => onOpenFaction(dossierPressure.id)}>Faction</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="dossier-empty">No faction pressure is armed yet.</div>
+                  )}
+                </div>
+
+                <div className="dossier-cell">
+                  <div className="dossier-kicker">Keep in your mouth</div>
+                  {dossierNpc ? (
+                    <div className="dossier-row clickable" onClick={() => onOpenNPC(dossierNpc.id)}>
+                      <div>
+                        <div className="dossier-title">{dossierNpc.name || 'Unnamed NPC'}</div>
+                        <div className="dossier-note">"{dossierNpc.quote || 'No quote recorded.'}"</div>
+                      </div>
+                      <DispPill d={dossierNpc.disposition} />
+                    </div>
+                  ) : (
+                    <div className="dossier-empty">No likely NPC is marked.</div>
+                  )}
+                  <button className="tbtn" onClick={() => onNav('characters')}>
+                    Cast list <Icon.Chevron />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -195,7 +291,7 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                           </div>
                           <div style={{
                             marginTop: -2, padding: '10px 12px 12px',
-                            background: 'linear-gradient(180deg, oklch(0.30 0.038 66), oklch(0.26 0.034 64))',
+                            background: 'var(--card-bg)',
                             border: '1px solid var(--hairline-2)',
                             borderTop: 0,
                             borderRadius: '0 0 var(--r) var(--r)',
@@ -251,12 +347,12 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                              padding: 12,
                              borderRadius: 'var(--r)',
                              border: '1px solid var(--hairline-2)',
-                             background: 'linear-gradient(180deg, oklch(0.34 0.042 70), oklch(0.29 0.036 66))',
+                             background: 'var(--card-bg)',
                            }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                           <div style={{
                             width: 40, height: 40, borderRadius: '50%',
-                            background: 'linear-gradient(160deg, oklch(0.46 0.06 55), oklch(0.26 0.04 30))',
+                            background: 'var(--card-head-bg)',
                             border: '1px solid var(--brass-dim)',
                             display: 'grid', placeItems: 'center',
                             fontFamily: 'var(--f-display)', fontSize: 17, color: 'var(--brass)',
@@ -442,8 +538,8 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                         <div key={j} style={{
                           flex: 1, height: 5, borderRadius: 2,
                           background: j < Number(q.step || 0)
-                            ? 'linear-gradient(180deg, oklch(0.7 0.12 80), oklch(0.48 0.10 80))'
-                            : 'oklch(0.18 0.025 60 / 0.55)',
+                            ? 'linear-gradient(180deg, var(--brass), var(--brass-2))'
+                            : 'var(--field-bg)',
                           border: '1px solid var(--hairline-2)',
                         }}></div>
                       ))}
@@ -507,7 +603,7 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         width: 34, height: 34, borderRadius: '50%',
-                        background: 'linear-gradient(160deg, oklch(0.42 0.05 55), oklch(0.24 0.04 30))',
+                        background: 'var(--card-head-bg)',
                         border: '1px solid var(--brass-dim)',
                         display: 'grid', placeItems: 'center',
                         fontFamily: 'var(--f-display)', fontSize: 15, color: 'var(--brass)',
@@ -609,6 +705,12 @@ function pickLastSession(sessions, currentSessionNumber) {
     return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
   });
   return ordered.find(s => (Number(s.number) || 0) < currentSessionNumber) || ordered[0] || null;
+}
+
+function secretReadinessRank(secret) {
+  if (secret?.status === 'cracked') return 0;
+  if (secret?.status === 'sealed') return 1;
+  return 2;
 }
 
 function buildDmLines({ openSecrets, activeQuests, rumors, topFaction, partyPlace }) {

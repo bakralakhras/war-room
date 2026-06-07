@@ -6,7 +6,7 @@ window.CAMPAIGN = {
   subtitle: "A kingdom mourns. An ember waits.",
   session: 14,
   sessionsTotal: 28,
-  nextSession: "Sat, 27 Vael · 19:00",
+  nextSession: "Sat, 27 Vael · 7:00 PM",
   party: [
     { name: "Aelric Vorn", role: "Half-elf Warlock", patron: "The Hollow Sovereign", hp: "38/52", note: "owes a debt to the Veiled Hand" },
     { name: "Marda Stonebrew", role: "Dwarven Cleric", patron: "Order of the Pale Moon", hp: "61/61", note: "carries her brother's signet" },

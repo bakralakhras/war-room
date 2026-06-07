@@ -12,6 +12,11 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
 
   const fac = factions.find(f => f.id === npc.faction);
   const relatedSecrets = secrets.filter(s => (s.relates || []).includes(npc.id));
+  const npcNameKey = (npc.name || '').toLowerCase();
+  const codexMentions = (state.codex || []).filter(e =>
+    (npcNameKey && (e.body || '').toLowerCase().includes(npcNameKey)) ||
+    (e.linkedIds || []).includes(npc.id)
+  ).slice(0, 5);
   const bonds = listValue(npc.bonds);
   const tags = listValue(npc.tags);
   const set = (field, value) => window.Store.dispatch({ type: 'NPC_SET_FIELD', id: npc.id, field, value });
@@ -267,6 +272,24 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="card cornered">
+            <div className="head">
+              <Icon.Codex />
+              <span className="title">Codex mentions</span>
+              <div className="spacer"></div>
+              <span className="smallcaps">{codexMentions.length}</span>
+            </div>
+            <div className="body">
+              {codexMentions.length === 0 && <div className="muted" style={{ fontStyle: 'italic' }}>No codex pages mention this character yet.</div>}
+              {codexMentions.map(e => (
+                <div key={e.id} className="lrow clickable" onClick={() => onNav('codex', { highlight: e.id })}>
+                  <span>{e.title || 'Untitled codex page'}</span>
+                  <span className="muted">{e.type || 'lore'}</span>
+                </div>
+              ))}
             </div>
           </div>
 

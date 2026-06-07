@@ -3,6 +3,10 @@
 
 function MapView({ state, onNav, onOpenNPC }) {
   const locs = state.locations || [];
+  const campaign = state.campaign || {};
+  const mapImage = campaign.mapImage || '';
+  const mapImageName = campaign.mapImageName || '';
+  const mapFileRef = React.useRef(null);
   const [selected, setSelected] = React.useState(locs.find(l => l.party)?.id || locs[0]?.id);
   const [layers, setLayers] = React.useState({
     political: true,
@@ -46,6 +50,22 @@ function MapView({ state, onNav, onOpenNPC }) {
     setForm({ label: '', kind: 'town', note: '' });
   };
 
+  const readMapImage = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImage', value: reader.result });
+      window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImageName', value: file.name || 'custom map' });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearMapImage = () => {
+    window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImage', value: '' });
+    window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImageName', value: '' });
+    if (mapFileRef.current) mapFileRef.current.value = '';
+  };
+
   // visible locations
   const visible = locs.filter(l => !l.hidden || showHidden);
 
@@ -58,6 +78,10 @@ function MapView({ state, onNav, onOpenNPC }) {
           <div className="page-sub">Tactical map · scale ≈ 40 leagues</div>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>
+          <input ref={mapFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+            onChange={e => readMapImage(e.target.files?.[0])} />
+          <button className="tbtn" onClick={() => mapFileRef.current?.click()}><Icon.Handouts /> Upload map</button>
+          {mapImage && <button className="tbtn" onClick={clearMapImage}>Clear map</button>}
           <button className={adding ? 'tbtn brass' : 'tbtn'} onClick={adding ? cancelAdding : startAdding}><Icon.Plus /> Add pin</button>
           <button className="tbtn" onClick={() => selected && window.Store.dispatch({ type: 'LOCATION_SET_PARTY', id: selected })}><Icon.PlayerView /> Player layer</button>
         </div>
@@ -74,6 +98,7 @@ function MapView({ state, onNav, onOpenNPC }) {
           </div>
           <div style={{ position: 'relative', aspectRatio: '4/3' }}>
             <MapCanvas locs={visible} selected={selected} onSelect={setSelected} layers={layers}
+              mapImage={mapImage}
               adding={adding} draftPoint={draftPoint} onPlaceDraft={setDraftPoint} />
             {adding && (
               <div style={{
@@ -134,6 +159,17 @@ function MapView({ state, onNav, onOpenNPC }) {
               <LayerToggle label="Active dangers"    value={layers.danger}    onChange={(v) => setLayers({ ...layers, danger: v })} />
               <LayerToggle label="Party position"    value={layers.party}     onChange={(v) => setLayers({ ...layers, party: v })} />
               <LayerToggle label="DM-only marks"     value={showHidden}       onChange={setShowHidden} dm />
+              <div className="hr"></div>
+              <div className="smallcaps" style={{ fontSize: 9.5, marginBottom: 6 }}>Map image</div>
+              <div className="quote" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                {mapImage
+                  ? `${mapImageName || 'Custom map'} is filling the region plate without stretching.`
+                  : 'Upload your own map art and the pins will stay on top.'}
+              </div>
+              <div className="row gap-sm">
+                <button className="tbtn brass" onClick={() => mapFileRef.current?.click()}>Choose image</button>
+                {mapImage && <button className="tbtn" onClick={clearMapImage}>Use drawn map</button>}
+              </div>
             </div>
           </div>
 
@@ -266,7 +302,7 @@ function LayerToggle({ label, value, onChange, dm }) {
 }
 
 // ── Map canvas: parchment with hatching, rivers, pin overlay ──────────────
-function MapCanvas({ locs, selected, onSelect, layers, adding, draftPoint, onPlaceDraft }) {
+function MapCanvas({ locs, selected, onSelect, layers, mapImage, adding, draftPoint, onPlaceDraft }) {
   const onMapClick = (e) => {
     if (!adding) return;
     const svg = e.currentTarget;
@@ -300,6 +336,17 @@ function MapCanvas({ locs, selected, onSelect, layers, adding, draftPoint, onPla
         </radialGradient>
       </defs>
 
+      {mapImage && (
+        <>
+          <rect width="800" height="600" fill="url(#m-paper)" />
+          <image href={mapImage} x="0" y="0" width="800" height="600"
+                 preserveAspectRatio="xMidYMid slice" />
+          <rect width="800" height="600" fill="url(#hatch)" opacity="0.16" />
+          <rect width="800" height="600" fill="none" stroke="oklch(0.18 0.04 45 / 0.38)" strokeWidth="2" />
+        </>
+      )}
+
+      <g opacity={mapImage ? 0 : 1} style={{ pointerEvents: mapImage ? 'none' : 'auto' }}>
       {/* paper */}
       <rect width="800" height="600" fill="url(#m-paper)" />
       <rect width="800" height="600" fill="url(#hatch)" opacity="0.7" />
@@ -353,6 +400,7 @@ function MapCanvas({ locs, selected, onSelect, layers, adding, draftPoint, onPla
                   strokeWidth="1" strokeDasharray="3 3" />
         </g>
       )}
+      </g>
 
       {/* pins */}
       {draftPoint && (

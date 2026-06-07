@@ -19,15 +19,40 @@ function Relationships({ state, onOpenNPC }) {
   const [hovered, setHovered]       = React.useState(null);
   const [hovEdge, setHovEdge]       = React.useState(null);
   const [drag, setDrag]             = React.useState(null);
+  const [linkDrag, setLinkDrag]     = React.useState(null);
+  const [pendingThread, setPendingThread] = React.useState(null);
+  const [threadDraft, setThreadDraft] = React.useState({ rel: 'knows', label: '', secret: false });
   const [panning, setPanning]       = React.useState(false);
   const [addingEdge, setAddingEdge] = React.useState(false);
   const [edgeForm, setEdgeForm]     = React.useState({ a: '', b: '', rel: 'ally', label: '', secret: false });
+  const relTypes = ['ally','blood','love','enmity','debt','knows','loyal','ward','pact','brother'];
+  const hovEdgeRef = React.useRef(null);
 
   const svgRef   = React.useRef(null);
+  const linkRef  = React.useRef(null);  // active thread drag from a tack pin
   const dragRef  = React.useRef(null);  // active node drag — read in RAF
   const panRef   = React.useRef(null);  // active canvas pan — read in RAF
   const rafRef   = React.useRef(null);  // pending animation frame id
   const mouseRef = React.useRef({ x: 0, y: 0 }); // latest mouse position
+  React.useEffect(() => { hovEdgeRef.current = hovEdge; }, [hovEdge]);
+
+  React.useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const tag = e.target?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable;
+      if (isTyping) return;
+      const index = hovEdgeRef.current;
+      if (index === null || index === undefined) return;
+
+      e.preventDefault();
+      window.Store.dispatch({ type: 'REL_EDGE_REMOVE', index });
+      setHovEdge(null);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Non-passive wheel listener so we can call preventDefault and prevent page scroll
   React.useEffect(() => {
@@ -82,6 +107,24 @@ function Relationships({ state, onOpenNPC }) {
     setVp(nv);
   };
 
+  const screenToContent = (clientX, clientY) => {
+    const v = vpRef.current;
+    const r = svgRef.current.getBoundingClientRect();
+    const sx = (clientX - r.left) / r.width  * W;
+    const sy = (clientY - r.top)  / r.height * H;
+    return { x: (sx - v.x) / v.scale, y: (sy - v.y) / v.scale };
+  };
+
+  const nodeAtContentPoint = (x, y, exceptId) => {
+    const hitRadius = 46;
+    return localNodes.find(n => {
+      if (n.id === exceptId) return false;
+      const dx = n.x * W - x;
+      const dy = n.y * H - y;
+      return Math.hypot(dx, dy) <= hitRadius;
+    });
+  };
+
   const handleNodeDown = (e, node) => {
     e.stopPropagation();
     const v = vpRef.current;
@@ -93,6 +136,16 @@ function Relationships({ state, onOpenNPC }) {
     const d = { id: node.id, ox: cx - node.x * W, oy: cy - node.y * H };
     dragRef.current = d;
     setDrag(d);
+  };
+
+  const handleLinkStart = (e, node) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const p = screenToContent(e.clientX, e.clientY);
+    const start = { from: node.id, x1: node.x * W, y1: node.y * H, x2: p.x, y2: p.y, over: null };
+    linkRef.current = start;
+    setLinkDrag(start);
+    setHovered(node.id);
   };
 
   const handlePanStart = (e) => {
@@ -110,7 +163,7 @@ function Relationships({ state, onOpenNPC }) {
 
   const handleMove = (e) => {
     mouseRef.current = { x: e.clientX, y: e.clientY };
-    if (!dragRef.current && !panRef.current) return;
+    if (!dragRef.current && !linkRef.current && !panRef.current) return;
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
@@ -120,7 +173,14 @@ function Relationships({ state, onOpenNPC }) {
       const sy = (mouseRef.current.y - r.top)  / r.height * H;
       const v = vpRef.current;
 
-      if (dragRef.current) {
+      if (linkRef.current) {
+        const p = screenToContent(mouseRef.current.x, mouseRef.current.y);
+        const over = nodeAtContentPoint(p.x, p.y, linkRef.current.from);
+        const next = { ...linkRef.current, x2: p.x, y2: p.y, over: over?.id || null };
+        linkRef.current = next;
+        setHovered(over?.id || linkRef.current.from);
+        setLinkDrag(next);
+      } else if (dragRef.current) {
         const d = dragRef.current;
         const cx = (sx - v.x) / v.scale;
         const cy = (sy - v.y) / v.scale;
@@ -136,8 +196,29 @@ function Relationships({ state, onOpenNPC }) {
     });
   };
 
-  const handleUp = () => {
+  const handleUp = (e) => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (linkRef.current) {
+      const finalPoint = e ? screenToContent(e.clientX, e.clientY) : null;
+      const finalTarget = finalPoint ? nodeAtContentPoint(finalPoint.x, finalPoint.y, linkRef.current.from) : null;
+      const link = { ...linkRef.current, over: finalTarget?.id || linkRef.current.over };
+      linkRef.current = null;
+      setLinkDrag(null);
+      setHovered(null);
+
+      if (e && link.over) {
+        const aNode = localNodes.find(n => n.id === link.from);
+        const bNode = localNodes.find(n => n.id === link.over);
+        setThreadDraft({ rel: 'knows', label: '', secret: false });
+        setPendingThread({
+          a: link.from,
+          b: link.over,
+          x: ((aNode?.x || 0.5) * W + (bNode?.x || 0.5) * W) / 2,
+          y: ((aNode?.y || 0.5) * H + (bNode?.y || 0.5) * H) / 2,
+        });
+      }
+      return;
+    }
     if (dragRef.current) {
       const node = localNodes.find(n => n.id === dragRef.current.id);
       if (node) window.Store.dispatch({ type: 'REL_NODE_MOVE', id: node.id, x: node.x, y: node.y });
@@ -146,6 +227,16 @@ function Relationships({ state, onOpenNPC }) {
     }
     panRef.current = null;
     setPanning(false);
+  };
+
+  const handleLeave = () => {
+    if (linkRef.current) {
+      linkRef.current = null;
+      setLinkDrag(null);
+      setHovered(null);
+      return;
+    }
+    handleUp();
   };
 
   const visibleEdge = (e) => {
@@ -176,6 +267,19 @@ function Relationships({ state, onOpenNPC }) {
     window.Store.dispatch({ type: 'REL_EDGE_ADD', ...edgeForm });
     setEdgeForm({ a: '', b: '', rel: 'ally', label: '', secret: false });
     setAddingEdge(false);
+  };
+
+  const addPendingThread = (e) => {
+    e.preventDefault();
+    if (!pendingThread) return;
+    window.Store.dispatch({ type: 'REL_EDGE_ADD', ...pendingThread, ...threadDraft, label: threadDraft.label.trim() });
+    setPendingThread(null);
+    setThreadDraft({ rel: 'knows', label: '', secret: false });
+  };
+
+  const cancelPendingThread = () => {
+    setPendingThread(null);
+    setThreadDraft({ rel: 'knows', label: '', secret: false });
   };
 
   const removeEdge = (index) => window.Store.dispatch({ type: 'REL_EDGE_REMOVE', index });
@@ -243,6 +347,12 @@ function Relationships({ state, onOpenNPC }) {
     width: '100%',
     boxSizing: 'border-box',
   };
+  const dragThreadStyle = edgeStyle('knows');
+  const threadDraftStyle = edgeStyle(threadDraft.rel);
+  const pendingThreadPosition = pendingThread ? {
+    left: `${Math.max(18, Math.min(82, ((pendingThread.x * vp.scale + vp.x) / W) * 100))}%`,
+    top: `${Math.max(16, Math.min(84, ((pendingThread.y * vp.scale + vp.y) / H) * 100))}%`,
+  } : null;
 
   return (
     <div className="page fade-up">
@@ -333,12 +443,12 @@ function Relationships({ state, onOpenNPC }) {
               preserveAspectRatio="none"
               style={{
                 position: 'absolute', inset: 0, width: '100%', height: '100%',
-                cursor: drag || panning ? 'grabbing' : 'grab',
+                cursor: linkDrag ? 'crosshair' : drag || panning ? 'grabbing' : 'grab',
               }}
               onMouseDown={handlePanStart}
               onMouseMove={handleMove}
               onMouseUp={handleUp}
-              onMouseLeave={handleUp}
+              onMouseLeave={handleLeave}
             >
               <defs>
                 <filter id="rel-thread-shadow">
@@ -391,27 +501,96 @@ function Relationships({ state, onOpenNPC }) {
                 })}
 
                 {/* ── Nodes ── */}
+                {linkDrag && (
+                  <g pointerEvents="none" filter="url(#rel-thread-shadow)">
+                    <line x1={linkDrag.x1} y1={linkDrag.y1} x2={linkDrag.x2} y2={linkDrag.y2}
+                          stroke={dragThreadStyle.stroke}
+                          strokeWidth={dragThreadStyle.w}
+                          strokeDasharray={dragThreadStyle.dash}
+                          strokeLinecap="round"
+                          opacity={linkDrag.over ? 0.95 : 0.55} />
+                  </g>
+                )}
+
                 {localNodes.map(n => {
                   const cx = n.x * W, cy = n.y * H;
                   const isDragging    = drag && drag.id === n.id;
+                  const isLinking     = linkDrag && (linkDrag.from === n.id || linkDrag.over === n.id);
                   const isSearchMatch = searching && matchesSearch(nodeLabel(n));
                   return (
                     <g key={n.id}
                        transform={`translate(${cx},${cy})`}
                        opacity={nodeOpacity(n)}
-                       filter={isDragging ? 'url(#rel-node-lift)' : isSearchMatch ? 'url(#rel-search-glow)' : undefined}
-                       onMouseEnter={() => !drag && setHovered(n.id)}
-                       onMouseLeave={() => !drag && setHovered(null)}
+                       filter={isDragging || isLinking ? 'url(#rel-node-lift)' : isSearchMatch ? 'url(#rel-search-glow)' : undefined}
+                       onMouseEnter={() => !drag && !linkDrag && setHovered(n.id)}
+                       onMouseLeave={() => !drag && !linkDrag && setHovered(null)}
                        onMouseDown={(e) => handleNodeDown(e, n)}
                        onDoubleClick={() => onOpenNPC && onOpenNPC(n.id)}
                        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
-                      <NodePortrait kind={nodeKind(n)} label={nodeLabel(n)} image={nodeImage(n)} />
+                      <NodePortrait kind={nodeKind(n)} label={nodeLabel(n)} image={nodeImage(n)} onLinkStart={(e) => handleLinkStart(e, n)} />
                     </g>
                   );
                 })}
 
               </g>
             </svg>
+
+            {pendingThread && (
+              <form
+                onSubmit={addPendingThread}
+                className="card cornered"
+                style={{
+                  position: 'absolute',
+                  ...pendingThreadPosition,
+                  transform: 'translate(-50%, -50%)',
+                  width: 278,
+                  zIndex: 5,
+                  overflow: 'hidden',
+                  boxShadow: 'var(--shadow-card), 0 18px 45px oklch(0 0 0 / 0.45)',
+                }}
+              >
+                <div className="head" style={{ padding: '8px 12px' }}>
+                  <Icon.Relationships />
+                  <span className="title">Bind a thread</span>
+                  <div className="spacer" />
+                  <button type="button" className="tbtn" style={{ fontSize: 10, padding: '1px 7px' }} onClick={cancelPendingThread}>Cancel</button>
+                </div>
+                <div className="body" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 11, color: 'var(--fg-3)', marginBottom: 8, fontStyle: 'italic' }}>
+                    {nodeLabel(localNodes.find(n => n.id === pendingThread.a) || { id: pendingThread.a }) || pendingThread.a} -&gt; {nodeLabel(localNodes.find(n => n.id === pendingThread.b) || { id: pendingThread.b }) || pendingThread.b}
+                  </div>
+                  <svg width="100%" height="12" style={{ display: 'block', margin: '-2px 0 8px' }}>
+                    <line x1="0" y1="6" x2="100%" y2="6" stroke={threadDraftStyle.stroke}
+                          strokeWidth={threadDraftStyle.w + 0.5} strokeDasharray={threadDraftStyle.dash}
+                          strokeLinecap="round" opacity="0.9" />
+                  </svg>
+                  <div className="grid" style={{ gridTemplateColumns: '106px 1fr', gap: 7 }}>
+                    <select
+                      value={threadDraft.rel}
+                      onChange={e => setThreadDraft(f => ({ ...f, rel: e.target.value }))}
+                      style={iS}
+                      autoFocus
+                    >
+                      {relTypes.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <input
+                      value={threadDraft.label}
+                      onChange={e => setThreadDraft(f => ({ ...f, label: e.target.value }))}
+                      placeholder="Label, e.g. witnessed"
+                      style={iS}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 11.5, color: 'var(--fg-2)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={threadDraft.secret} onChange={e => setThreadDraft(f => ({ ...f, secret: e.target.checked }))} />
+                      DM-only
+                    </label>
+                    <div style={{ flex: 1 }} />
+                    <button type="submit" className="tbtn brass" style={{ fontSize: 11, padding: '3px 10px' }}>Place thread</button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
 
           <div style={{ padding: '7px 16px', fontSize: 11, color: 'var(--fg-4)', fontStyle: 'italic', borderTop: '1px solid var(--hairline-2)' }}>
@@ -461,7 +640,7 @@ function Relationships({ state, onOpenNPC }) {
                 </div>
                 <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
                   <select value={edgeForm.rel} onChange={e => setEdgeForm(f => ({ ...f, rel: e.target.value }))} style={iS}>
-                    {['ally','blood','love','enmity','debt','knows','loyal','ward','pact','brother'].map(r => (
+                    {relTypes.map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
@@ -557,7 +736,7 @@ function Relationships({ state, onOpenNPC }) {
 }
 
 // ── Portrait card rendered as SVG group (centered at 0,0) ──────────
-function NodePortrait({ kind, label, image }) {
+function NodePortrait({ kind, label, image, onLinkStart }) {
   const colors = {
     noble:   ['oklch(0.42 0.07 80)',  'oklch(0.22 0.05 60)'],
     soldier: ['oklch(0.38 0.012 60)', 'oklch(0.18 0.012 60)'],
@@ -570,24 +749,36 @@ function NodePortrait({ kind, label, image }) {
   };
   const [a, b] = colors[kind] || colors.noble;
   const gradId = `grad-${kind}-${(label || '').replace(/\W/g, '')}`;
+  const safeLabel = label || '';
+  const cardWidth = 60;
+  const halfWidth = cardWidth / 2;
+  const innerWidth = Math.max(0, cardWidth - 4);
+  const imageX = -halfWidth + 2;
+  const nameplateY = 12;
+  const labelLines = wrapSvgLabel(safeLabel, 11);
+  const labelLineHeight = 7.5;
+  const nameplateHeight = Math.max(12, labelLines.length * labelLineHeight + 4);
+  const cardHeight = nameplateY + nameplateHeight + 20;
   return (
     <g>
       {/* tack pin */}
       <circle cx="0" cy="-30" r="3.5" fill="var(--brass)" stroke="oklch(0.16 0.04 30)" strokeWidth="0.5" />
+      <circle cx="0" cy="-30" r="11" fill="transparent" stroke="transparent"
+              onMouseDown={onLinkStart} style={{ cursor: 'crosshair' }} />
       <line x1="0" y1="-27" x2="0" y2="-20" stroke="oklch(0.32 0.014 60)" strokeWidth="0.9" />
       {/* portrait card */}
-      <rect x="-30" y="-20" width="60" height="44" rx="2.5"
+      <rect x={-halfWidth} y="-20" width={cardWidth} height={cardHeight} rx="2.5"
             fill="oklch(0.92 0.04 80)" stroke="oklch(0.4 0.07 60)" strokeWidth="0.7" />
       {/* colored fill / uploaded portrait */}
       {image ? (
         <>
           <clipPath id={`${gradId}-clip`}>
-            <rect x="-28" y="-18" width="56" height="28" />
+            <rect x={imageX} y="-18" width={innerWidth} height="28" />
           </clipPath>
-          <image href={image} x="-28" y="-18" width="56" height="28" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${gradId}-clip)`} />
+          <image href={image} x={imageX} y="-18" width={innerWidth} height="28" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${gradId}-clip)`} />
         </>
       ) : (
-        <rect x="-28" y="-18" width="56" height="28" fill={`url(#${gradId})`} />
+        <rect x={imageX} y="-18" width={innerWidth} height="28" fill={`url(#${gradId})`} />
       )}
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -602,14 +793,48 @@ function NodePortrait({ kind, label, image }) {
         </>
       )}
       {/* nameplate */}
-      <rect x="-30" y="12" width="60" height="12" fill="oklch(0.85 0.04 80)" stroke="oklch(0.4 0.07 60)" strokeWidth="0.5" />
-      <text textAnchor="middle" y="21" fontFamily="Cormorant Garamond, serif"
-            fontSize="9" fill="oklch(0.22 0.06 40)" letterSpacing="0.3">{label}</text>
+      <rect x={-halfWidth} y={nameplateY} width={cardWidth} height={nameplateHeight} fill="oklch(0.85 0.04 80)" stroke="oklch(0.4 0.07 60)" strokeWidth="0.5" />
+      <text textAnchor="middle" fontFamily="Cormorant Garamond, serif"
+            fontSize="9" fill="oklch(0.22 0.06 40)" letterSpacing="0.3">{labelLines.map((line, i) => (
+          <tspan key={`${line}-${i}`} x="0" y={nameplateY + 8 + i * labelLineHeight}>{line}</tspan>
+        ))}</text>
       {kind === 'ghost' && (
-        <rect x="-30" y="-20" width="60" height="44" rx="2.5" fill="oklch(0.92 0.04 80 / 0.45)" />
+        <rect x={-halfWidth} y="-20" width={cardWidth} height={cardHeight} rx="2.5" fill="oklch(0.92 0.04 80 / 0.45)" />
       )}
     </g>
   );
+}
+
+function wrapSvgLabel(label, maxChars) {
+  const words = String(label || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+
+  const lines = [];
+  let line = '';
+
+  words.forEach(word => {
+    if (word.length > maxChars) {
+      if (line) {
+        lines.push(line);
+        line = '';
+      }
+      for (let i = 0; i < word.length; i += maxChars) {
+        lines.push(word.slice(i, i + maxChars));
+      }
+      return;
+    }
+
+    const nextLine = line ? `${line} ${word}` : word;
+    if (nextLine.length <= maxChars) {
+      line = nextLine;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines;
 }
 
 // ── Small square avatar for the right-panel list ───────────────────

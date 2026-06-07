@@ -405,8 +405,80 @@ function Field({ label, value, onChange, autoFocus, multiline, placeholder, opti
   );
 }
 
+function parseSessionTime(value) {
+  const text = String(value || '');
+  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\b\s*$/);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = match[2] == null ? 0 : Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === 'PM' && hour !== 12) hour += 12;
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+  } else if (hour > 23) {
+    return null;
+  }
+
+  return { hour, minute, raw: match[0], index: match.index };
+}
+
+function formatSessionTime12(hour, minute = 0) {
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`;
+}
+
+function formatNextSession12(value) {
+  const parsed = parseSessionTime(value);
+  if (!parsed) return value || '';
+  return `${String(value).slice(0, parsed.index).trimEnd()}${String(value).slice(0, parsed.index).trimEnd() ? ' ' : ''}${formatSessionTime12(parsed.hour, parsed.minute)}`.replace(/\s+([·-])\s*$/, ' $1 ');
+}
+
+function parseNextSessionTarget(value, now = new Date()) {
+  const text = String(value || '').trim();
+  const time = parseSessionTime(text);
+  if (!time) return null;
+
+  const weekdayMatch = text.match(/\b(sun|mon|tue|wed|thu|fri|sat)(?:day)?\b/i);
+  const target = new Date(now);
+  target.setSeconds(0, 0);
+  target.setHours(time.hour, time.minute, 0, 0);
+
+  if (weekdayMatch) {
+    const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const wanted = weekdays.indexOf(weekdayMatch[1].slice(0, 3).toLowerCase());
+    let delta = (wanted - now.getDay() + 7) % 7;
+    if (delta === 0 && target <= now) delta = 7;
+    target.setDate(now.getDate() + delta);
+    return target;
+  }
+
+  if (target <= now) target.setDate(target.getDate() + 1);
+  return target;
+}
+
+function nextSessionCountdownLabel(value, now = new Date()) {
+  const target = parseNextSessionTarget(value, now);
+  if (!target) return null;
+  const diffMs = target - now;
+  if (diffMs <= 0) return '0';
+
+  const totalMinutes = Math.ceil(diffMs / 60000);
+  const totalHours = Math.ceil(totalMinutes / 60);
+  if (totalHours >= 24) {
+    const days = Math.max(1, Math.floor(totalMinutes / 1440));
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
+  }
+  if (totalMinutes >= 60) return `${totalHours} hrs`;
+  return `${totalMinutes} min`;
+}
+
 // Export everything
-Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill, Field });
+Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill, Field, formatNextSession12, nextSessionCountdownLabel });
 
 // ── WikiLink: hover preview + click-to-navigate for any entity ─────────
 // Pass `id` matching any NPC, faction, location, religion, relic, or lore.
