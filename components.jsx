@@ -433,6 +433,16 @@ function formatSessionTime12(hour, minute = 0) {
 }
 
 function formatNextSession12(value) {
+  const target = parseNextSessionTarget(value);
+  if (target && String(value || '').includes('T')) {
+    return target.toLocaleString([], {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
   const parsed = parseSessionTime(value);
   if (!parsed) return value || '';
   return `${String(value).slice(0, parsed.index).trimEnd()}${String(value).slice(0, parsed.index).trimEnd() ? ' ' : ''}${formatSessionTime12(parsed.hour, parsed.minute)}`.replace(/\s+([·-])\s*$/, ' $1 ');
@@ -440,6 +450,11 @@ function formatNextSession12(value) {
 
 function parseNextSessionTarget(value, now = new Date()) {
   const text = String(value || '').trim();
+  const exact = Date.parse(text);
+  if (Number.isFinite(exact)) {
+    const target = new Date(exact);
+    return target.getTime() > 0 ? target : null;
+  }
   const time = parseSessionTime(text);
   if (!time) return null;
 
@@ -477,8 +492,15 @@ function nextSessionCountdownLabel(value, now = new Date()) {
   return `${totalMinutes} min`;
 }
 
+function nextSessionInputValue(value) {
+  const target = parseNextSessionTarget(value);
+  if (!target) return '';
+  const local = new Date(target.getTime() - target.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 // Export everything
-Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill, Field, formatNextSession12, nextSessionCountdownLabel });
+Object.assign(window, { Icon, Sigil, FactionClock, WaxSeal, DispPill, Field, formatNextSession12, nextSessionCountdownLabel, nextSessionInputValue, parseNextSessionTarget });
 
 // ── WikiLink: hover preview + click-to-navigate for any entity ─────────
 // Pass `id` matching any NPC, faction, location, religion, relic, or lore.

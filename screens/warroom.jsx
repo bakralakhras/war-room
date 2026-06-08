@@ -2,6 +2,7 @@
 // The screen should summarize the user's actual campaign state, never demo copy.
 
 function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
+  const [, setNowTick] = React.useState(0);
   const c = state.campaign || {};
   const campaignLocation = c.location || {};
   const factions = state.factions || [];
@@ -21,6 +22,7 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
   const sessionLabel = toRoman(sessionNumber);
   const sessionTotal = c.sessionsTotal || '?';
   const nextSessionText = window.formatNextSession12 ? window.formatNextSession12(c.nextSession) : c.nextSession;
+  const nextSessionCountdown = window.nextSessionCountdownLabel ? window.nextSessionCountdownLabel(c.nextSession) : null;
   const nextSession = cleanText(nextSessionText) || 'No next session scheduled';
   const partyLocation = locations.find(l => l.party);
   const partyPlace = cleanText(partyLocation?.label || partyLocation?.name || campaignLocation.name) || 'Unknown';
@@ -50,6 +52,11 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
     topFaction,
     partyPlace,
   });
+
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNowTick(t => t + 1), 60000);
+    return () => window.clearInterval(id);
+  }, []);
 
   React.useEffect(() => {
     const shortcuts = {
@@ -84,7 +91,7 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
         <div>
           <div className="smallcaps" style={{ marginBottom: 6 }}>
             <span className="ember-dot" style={{ marginRight: 8, verticalAlign: 'middle' }}></span>
-            Session {sessionNumber} · {nextSession}
+            Session {sessionNumber} · {nextSession}{nextSessionCountdown ? ` · ${nextSessionCountdown}` : ''}
           </div>
           <h1 className="page-title herald">The War Room</h1>
           <div className="page-sub">

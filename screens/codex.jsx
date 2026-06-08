@@ -289,6 +289,7 @@ function buildHighlight(text, entities) {
   out = out.replace(/^(## .+)$/gm, '<span class="cx-h2">$1</span>');
   out = out.replace(/^(# .+)$/gm,  '<span class="cx-h1">$1</span>');
   out = out.replace(/\[\[([^\]]+)\]\]/g, '<mark class="cx-link cx-wiki">[[$1]]</mark>');
+  out = out.replace(/==([^=\n](?:.*?[^=\n])?)==/g, '<mark class="cx-user-highlight">==$1==</mark>');
 
   // Entity auto-links (longest first to prevent partial shadowing)
   const sorted = [...entities].sort((a, b) => b.name.length - a.name.length);
@@ -820,14 +821,15 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
                   <button className="tbtn" onClick={() => insertSnippet('- ', '', 'List item')}>List</button>
                   <button className="tbtn" onClick={() => insertSnippet('> ', '', 'Quoted note')}>Quote</button>
                   <button className="tbtn" onClick={() => insertSnippet('[[', ']]', title || 'Linked page')}>Link</button>
+                  <button className="tbtn" title="Highlight selection (Ctrl+Shift+H)" onClick={() => insertSnippet('==', '==', 'Highlighted text')}>Highlight</button>
                   <button className="tbtn" onClick={() => insertSnippet('\n## Scene\n\n## Clues\n\n## Open Questions\n', '', '')}>Session</button>
                 </div>
                 <span className="muted cx-toolbar-note">
-                  Entity names auto-highlight. Use [[Note title]] for explicit links.
+                  Entity names auto-highlight. Use [[Note title]] for links, ==text== for highlights.
                 </span>
               </div>
               <CodexBodyEditor ref={bodyRef} value={body} entities={entities}
-                onChange={updateBody} />
+                onChange={updateBody} onHighlightShortcut={() => insertSnippet('==', '==', 'Highlighted text')} />
             </div>
           )}
 
@@ -1007,7 +1009,7 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
 }
 
 // ── CodexBodyEditor — highlight overlay ──────────────────────────────
-const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entities, onChange }, ref) {
+const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entities, onChange, onHighlightShortcut }, ref) {
   const mirrorRef = React.useRef(null);
 
   const syncScroll = () => {
@@ -1019,12 +1021,19 @@ const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entit
 
   const html = React.useMemo(() => buildHighlight(value, entities), [value, entities]);
 
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      onHighlightShortcut?.();
+    }
+  };
+
   return (
     <div className="cx-wrap">
       <div ref={mirrorRef} className="cx-mirror" aria-hidden="true"
         dangerouslySetInnerHTML={{ __html: html }} />
       <textarea ref={ref} className="cx-area" value={value} spellCheck={true}
-        onChange={e => onChange(e.target.value)} onScroll={syncScroll} />
+        onChange={e => onChange(e.target.value)} onScroll={syncScroll} onKeyDown={handleKeyDown} />
     </div>
   );
 });
@@ -1033,10 +1042,12 @@ const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entit
 function CodexPreview({ title, body, typeInfo, image, imageCredit, imageSourceUrl }) {
   const cleanBody = stripLegacyDmTags(body);
   const renderInline = (line, keyPrefix) => {
-    const parts = String(line).split(/(\[\[[^\]]+\]\])/g).filter(Boolean);
+    const parts = String(line).split(/(\[\[[^\]]+\]\]|==[^=\n](?:.*?[^=\n])?==)/g).filter(Boolean);
     return parts.map((part, i) => {
       const match = part.match(/^\[\[([^\]]+)\]\]$/);
       if (match) return <span key={`${keyPrefix}-w-${i}`} className="cx-pv-wiki">{match[1]}</span>;
+      const highlight = part.match(/^==(.+)==$/);
+      if (highlight) return <mark key={`${keyPrefix}-h-${i}`} className="cx-pv-highlight">{highlight[1]}</mark>;
       return <React.Fragment key={`${keyPrefix}-t-${i}`}>{part}</React.Fragment>;
     });
   };
