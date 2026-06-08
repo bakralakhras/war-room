@@ -527,7 +527,7 @@ function Calendar({ state }) {
   const [editingId, setEditingId] = React.useState(null);
   const [filter, setFilter] = React.useState('all');
   const [form, setForm] = React.useState({ date: '', title: '', kind: 'world', notes: '' });
-  const currentDate = state.campaign?.nextSession ? state.campaign.nextSession.split('·')[0].trim() : '';
+  const currentDate = state.campaign?.nextSession && window.formatNextSession12 ? window.formatNextSession12(state.campaign.nextSession) : state.campaign?.nextSession || '';
   const iStyle = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.16 0.012 60 / 0.55)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
 
   const kindColor = { session: 'brass', deadline: 'iron', omen: 'moon', world: 'iron' };
@@ -1871,32 +1871,51 @@ function SettingNumber({ label, value, onChange }) {
 }
 
 function NextSessionField({ value, onChange }) {
+  const [, setNowTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNowTick(t => t + 1), 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const inputValue = window.nextSessionInputValue ? window.nextSessionInputValue(value) : '';
   const countdown = window.nextSessionCountdownLabel ? window.nextSessionCountdownLabel(value) : null;
-  const normalize = () => {
-    if (window.formatNextSession12) onChange(window.formatNextSession12(value));
+  const display = window.formatNextSession12 ? window.formatNextSession12(value) : value;
+
+  const setFromPicker = (raw) => {
+    if (!raw) {
+      onChange('');
+      return;
+    }
+    const picked = new Date(raw);
+    if (!Number.isNaN(picked.getTime())) onChange(picked.toISOString());
   };
 
   return (
-    <label style={{ display: 'block' }}>
+    <label className="next-session-field">
       <div className="smallcaps" style={{ fontSize: 9.5, marginBottom: 5 }}>Next session</div>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onBlur={normalize}
-        placeholder="Sat, 27 Vael - 7:00 PM"
-        style={{
-          width: '100%',
-          boxSizing: 'border-box',
-          background: 'var(--field-bg, oklch(0.16 0.012 60 / 0.55))',
-          border: '1px solid var(--hairline-2)',
-          borderRadius: 'var(--r)',
-          color: 'var(--fg)',
-          padding: '8px 10px',
-          fontSize: 13,
-          outline: 'none',
-        }}
-      />
-      {countdown && <div className="muted" style={{ fontSize: 10.5, marginTop: 5 }}>Countdown: {countdown}</div>}
+      <div className="next-session-picker">
+        <input
+          type="datetime-local"
+          value={inputValue}
+          onChange={e => setFromPicker(e.target.value)}
+          aria-label="Next session date and time"
+        />
+        {value && (
+          <button type="button" className="tbtn" onClick={() => onChange('')}>
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="next-session-readout">
+        {value ? (
+          <>
+            <span>{display}</span>
+            {countdown && <b>{countdown}</b>}
+          </>
+        ) : (
+          <span>No session scheduled.</span>
+        )}
+      </div>
     </label>
   );
 }

@@ -1,4 +1,4 @@
-// Player view: subscribes to the DM's public broadcast and gives each player
+﻿// Player view: subscribes to the DM's public broadcast and gives each player
 // a private local desk plus a shared party chronicle.
 
 // ─── DEMO FALLBACK ──────────────────────────────────────────────────────────
@@ -107,6 +107,7 @@ function defaultDesk(player) {
     traits: { personality: '', ideals: '', bonds: '', flaws: '' },
     inventory: [],
     abilities: [],
+    theories: { nodes: [], edges: [] },
   };
 }
 
@@ -123,6 +124,7 @@ function migrateDesk(saved, player) {
   if (!desk.traits) desk.traits = base.traits;
   if (!desk.inventory) desk.inventory = base.inventory;
   if (!desk.abilities) desk.abilities = base.abilities;
+  if (!desk.theories) desk.theories = base.theories;
   return desk;
 }
 
@@ -183,7 +185,20 @@ function usePlayerDesk(campaignId, player) {
   const addAbility = (name, desc) => { if (!name.trim()) return; setDesk(d => ({ ...d, abilities: [...(d.abilities || []), { id: 'ab-' + Date.now(), name: name.trim(), desc: desc.trim() }] })); };
   const removeAbility = (id) => setDesk(d => ({ ...d, abilities: (d.abilities || []).filter(a => a.id !== id) }));
 
-  return { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility };
+  const addTheoryNode = (label, type, npcId, note) => {
+    const node = { id: 'tn-' + Date.now(), label: label.trim(), type: type || 'unknown', npcId: npcId || null, note: (note || '').trim(), x: 0.25 + Math.random() * 0.5, y: 0.25 + Math.random() * 0.5, suspicion: 'medium' };
+    setDesk(d => ({ ...d, theories: { ...d.theories, nodes: [...(d.theories?.nodes || []), node] } }));
+    return node.id;
+  };
+  const updateTheoryNode = (id, p) => setDesk(d => ({ ...d, theories: { ...d.theories, nodes: (d.theories?.nodes || []).map(n => n.id === id ? { ...n, ...p } : n) } }));
+  const removeTheoryNode = (id) => setDesk(d => ({ ...d, theories: { nodes: (d.theories?.nodes || []).filter(n => n.id !== id), edges: (d.theories?.edges || []).filter(e => e.a !== id && e.b !== id) } }));
+  const addTheoryEdge = (a, b, label, type) => {
+    const edge = { id: 'te-' + Date.now(), a, b, label: (label || '').trim(), type: type || 'unknown' };
+    setDesk(d => ({ ...d, theories: { ...d.theories, edges: [...(d.theories?.edges || []), edge] } }));
+  };
+  const removeTheoryEdge = (id) => setDesk(d => ({ ...d, theories: { ...d.theories, edges: (d.theories?.edges || []).filter(e => e.id !== id) } }));
+
+  return { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge };
 }
 
 function usePartyChronicle(campaignId, player) {
@@ -260,7 +275,7 @@ function PlayerApp() {
   const { state, status, campaignId, playerId } = usePlayerSync();
   const campaign = state?.campaign || {};
   const player = (campaign.playerRoster || []).find(p => p.id === playerId);
-  const { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility } = usePlayerDesk(campaignId, player);
+  const { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge } = usePlayerDesk(campaignId, player);
   const { entries: chronicle, postEntry } = usePartyChronicle(campaignId, player);
   const { theme, pick: pickTheme, reset: resetTheme } = useThemePicker(campaignId, playerId, campaign.theme);
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -294,6 +309,7 @@ function PlayerApp() {
               intel: publicQuests.length + publicNpcs.length + publicLocations.length + publicSecrets.length + safeHandouts.length,
               sparks: desk.sparks?.length || 0,
               party: (state?.party || []).length,
+              theories: (desk.theories?.nodes || []).length,
             }} />
 
             {activeTab === 'overview' && (
@@ -313,6 +329,9 @@ function PlayerApp() {
             )}
             {activeTab === 'inspiration' && (
               <PlayerInspirationPage desk={desk} patch={patch} addSpark={addSpark} removeSpark={removeSpark} />
+            )}
+            {activeTab === 'theories' && (
+              <PlayerTheories theories={desk.theories || { nodes: [], edges: [] }} publicNpcs={publicNpcs} onAddNode={addTheoryNode} onUpdateNode={updateTheoryNode} onRemoveNode={removeTheoryNode} onAddEdge={addTheoryEdge} onRemoveEdge={removeTheoryEdge} />
             )}
           </div>
         )}
@@ -396,6 +415,7 @@ function PlayerTabs({ active, onChange, counts }) {
     { id: 'intel',       label: 'Intel',       note: `${counts.intel} records` },
     { id: 'party',       label: 'Party',       note: `${counts.party} members` },
     { id: 'inspiration', label: 'Inspiration', note: `${counts.sparks} pins` },
+    { id: 'theories',    label: 'Theories',    note: `${counts.theories} node${counts.theories !== 1 ? 's' : ''}` },
   ];
   return (
     <div className="player-tabs" role="tablist" aria-label="Player pages">
@@ -610,14 +630,18 @@ function PlayerCharacter({ state, player, character, desk, patchHp, patchTrait, 
 
 // ─── JOURNAL TAB ─────────────────────────────────────────────────────────────
 
-function ChronicleEntry({ entry }) {
+function ChronicleEntry({ entry, isOwn }) {
+  const initials = (entry.author || '?').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
   return (
-    <article className="chronicle-entry">
-      <div className="chronicle-entry-head">
-        <strong>{entry.author}</strong>
-        <span>{entry.date}</span>
+    <article className={`chronicle-entry ${isOwn ? 'chronicle-own' : ''}`}>
+      <div className="chronicle-entry-avatar">{initials}</div>
+      <div className="chronicle-entry-body">
+        <div className="chronicle-entry-head">
+          <strong>{entry.author}</strong>
+          <span>{entry.date}</span>
+        </div>
+        <p>{entry.body}</p>
       </div>
-      <p>{entry.body}</p>
     </article>
   );
 }
@@ -630,19 +654,26 @@ function ChronicleComposer({ player, onPost }) {
     onPost(body, player?.character);
     setBody('');
   };
+  const initials = (player?.character || '?').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
   return (
     <form className="chronicle-composer" onSubmit={submit}>
-      <div className="chronicle-composer-head">
-        <span className="smallcaps">Post to party chronicle</span>
-        <span className="muted" style={{ fontSize: 12 }}>as {player?.character || 'your character'}</span>
+      <div className="chronicle-composer-row">
+        <div className="chronicle-composer-avatar">{initials}</div>
+        <div style={{ flex: 1 }}>
+          <div className="chronicle-composer-head">
+            <span style={{ fontFamily: 'var(--f-display)', fontSize: 15 }}>{player?.character || 'Your character'}</span>
+            <span className="muted" style={{ fontSize: 11 }}>posting to party chronicle</span>
+          </div>
+          <textarea
+            className="player-textarea compact"
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder={"What happened this session? What stood out? Who do you trust less now?"}
+            style={{ marginTop: 8 }}
+          />
+          <button type="submit" className="chronicle-post-btn" disabled={!body.trim()} style={{ marginTop: 8 }}>Post</button>
+        </div>
       </div>
-      <textarea
-        className="player-textarea compact"
-        value={body}
-        onChange={e => setBody(e.target.value)}
-        placeholder={"Write a session note the whole party will see…\n\nWhat happened? What stood out? Who do you trust less now?"}
-      />
-      <button type="submit" className="chronicle-post-btn" disabled={!body.trim()}>Post to chronicle</button>
     </form>
   );
 }
@@ -710,7 +741,7 @@ function PlayerJournal({ entries, chronicle, player, onAdd, onUpdate, onRemove, 
           <div className="chronicle-feed">
             {chronicle.length === 0
               ? <div className="empty">No entries yet. Be the first to post to the party chronicle.</div>
-              : chronicle.map(e => <ChronicleEntry key={e.id} entry={e} />)
+              : chronicle.map(e => <ChronicleEntry key={e.id} entry={e} isOwn={e.author === player?.character} />)
             }
           </div>
         </div>
@@ -891,7 +922,7 @@ function PlayerParty({ state, player }) {
               text={state?.campaign?.location?.note || ''}
             />
             {state?.campaign?.nextSession && (
-              <IntelRow title="Next session" meta="scheduled" text={state.campaign.nextSession} />
+              <PlayerNextSession value={state.campaign.nextSession} />
             )}
           </PlayerPanel>
 
@@ -907,6 +938,26 @@ function PlayerParty({ state, player }) {
 }
 
 // ─── INSPIRATION TAB ─────────────────────────────────────────────────────────
+
+function PlayerNextSession({ value }) {
+  const [, setNowTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNowTick(t => t + 1), 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const display = window.formatNextSession12 ? window.formatNextSession12(value) : value;
+  const countdown = window.nextSessionCountdownLabel ? window.nextSessionCountdownLabel(value) : null;
+  return (
+    <div className="player-next-session">
+      <div>
+        <span className="smallcaps">Next session</span>
+        <strong>{display}</strong>
+      </div>
+      {countdown && <b>{countdown}</b>}
+    </div>
+  );
+}
 
 function PlayerInspirationPage({ desk, patch, addSpark, removeSpark }) {
   return (
@@ -944,6 +995,268 @@ function PlayerInspirationBoard({ sparks, onAdd, onRemove }) {
   );
 }
 
+// ─── THEORY BOARD ────────────────────────────────────────────────────────────
+
+const THEORY_W = 1200, THEORY_H = 800, NODE_R = 30;
+const THEORY_TYPE_COLOR = { npc: 'var(--brass)', unknown: 'oklch(0.6 0.06 270)', faction: 'var(--amber)', event: 'var(--crimson)' };
+const THEORY_EDGE_COLOR = { suspects: 'var(--amber)', trusts: 'var(--forest)', enemy: 'var(--crimson)', knows: 'var(--fg-3)', connected: 'var(--brass)', unknown: 'oklch(0.5 0.03 270)' };
+const THEORY_EDGE_TYPES = ['suspects', 'trusts', 'enemy', 'knows', 'connected', 'unknown'];
+
+function TheoryBoard({ theories, publicNpcs, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
+  const svgRef = React.useRef(null);
+  const [vp, setVp] = React.useState({ x: 40, y: 40, scale: 1 });
+  const vpRef = React.useRef({ x: 40, y: 40, scale: 1 });
+  React.useEffect(() => { vpRef.current = vp; }, [vp]);
+  const [localNodes, setLocalNodes] = React.useState(() => (theories.nodes || []).map(n => ({ ...n })));
+  React.useEffect(() => { setLocalNodes((theories.nodes || []).map(n => ({ ...n }))); }, [(theories.nodes || []).length]);
+  const [selected, setSelected] = React.useState(null);
+  const [hovEdge, setHovEdge] = React.useState(null);
+  const [connectFrom, setConnectFrom] = React.useState(null);
+  const [edgePending, setEdgePending] = React.useState(null);
+  const [edgeDraft, setEdgeDraft] = React.useState({ label: '', type: 'suspects' });
+  const [editNode, setEditNode] = React.useState(null);
+  const [addPanel, setAddPanel] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const panRef = React.useRef(null);
+  const rafRef = React.useRef(null);
+  const mouseRef = React.useRef({ x: 0, y: 0 });
+
+  React.useEffect(() => {
+    const el = svgRef.current; if (!el) return;
+    const handler = e => {
+      e.preventDefault();
+      const v = vpRef.current, r = el.getBoundingClientRect();
+      const sx = (e.clientX - r.left) / r.width * THEORY_W, sy = (e.clientY - r.top) / r.height * THEORY_H;
+      const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const ns = Math.max(0.15, Math.min(5, v.scale * f));
+      const cx = (sx - v.x) / v.scale, cy = (sy - v.y) / v.scale;
+      const nv = { scale: ns, x: sx - cx * ns, y: sy - cy * ns };
+      vpRef.current = nv; setVp(nv);
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
+
+  React.useEffect(() => {
+    const h = e => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      if (selected) { onRemoveNode(selected); setSelected(null); }
+      else if (hovEdge) { onRemoveEdge(hovEdge); setHovEdge(null); }
+    };
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+  }, [selected, hovEdge]);
+
+  const onMouseMove = e => {
+    mouseRef.current = { x: e.clientX, y: e.clientY };
+    if (!dragRef.current && !panRef.current) return;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const el = svgRef.current; if (!el) return;
+      const r = el.getBoundingClientRect(), v = vpRef.current;
+      const { x: mx, y: my } = mouseRef.current;
+      if (dragRef.current) {
+        const { id, ox, oy } = dragRef.current;
+        const px = ((mx - r.left) / r.width * THEORY_W - v.x) / v.scale - ox;
+        const py = ((my - r.top) / r.height * THEORY_H - v.y) / v.scale - oy;
+        setLocalNodes(prev => prev.map(n => n.id === id ? { ...n, x: Math.max(0.01, Math.min(0.99, px / THEORY_W)), y: Math.max(0.01, Math.min(0.99, py / THEORY_H)) } : n));
+      }
+      if (panRef.current) {
+        const { smx, smy, svp } = panRef.current;
+        const dx = (mx - r.left) / r.width * THEORY_W - (smx - r.left) / r.width * THEORY_W;
+        const dy = (my - r.top) / r.height * THEORY_H - (smy - r.top) / r.height * THEORY_H;
+        const nv = { ...svp, x: svp.x + dx, y: svp.y + dy };
+        vpRef.current = nv; setVp(nv);
+      }
+    });
+  };
+
+  const onMouseUp = () => {
+    if (dragRef.current) {
+      const node = localNodes.find(n => n.id === dragRef.current.id);
+      if (node) onUpdateNode(node.id, { x: node.x, y: node.y });
+      dragRef.current = null;
+    }
+    panRef.current = null;
+  };
+
+  const onNodeDown = (e, node) => {
+    e.stopPropagation();
+    if (connectFrom !== null) {
+      if (connectFrom !== node.id) { setEdgePending({ from: connectFrom, to: node.id }); setConnectFrom(null); }
+      return;
+    }
+    setSelected(node.id);
+    const el = svgRef.current, r = el.getBoundingClientRect(), v = vpRef.current;
+    const mx = (e.clientX - r.left) / r.width * THEORY_W, my = (e.clientY - r.top) / r.height * THEORY_H;
+    dragRef.current = { id: node.id, ox: (mx - v.x) / v.scale - node.x * THEORY_W, oy: (my - v.y) / v.scale - node.y * THEORY_H };
+  };
+
+  const onCanvasDown = e => {
+    if (connectFrom === null) setSelected(null);
+    if (!connectFrom) panRef.current = { smx: e.clientX, smy: e.clientY, svp: { ...vpRef.current } };
+  };
+
+  const submitEdge = e => {
+    e.preventDefault();
+    if (edgePending) onAddEdge(edgePending.from, edgePending.to, edgeDraft.label, edgeDraft.type);
+    setEdgePending(null); setEdgeDraft({ label: '', type: 'suspects' }); setConnectFrom(null);
+  };
+
+  const existingNpcIds = (theories.nodes || []).map(n => n.npcId).filter(Boolean);
+
+  return (
+    <div className="theory-board-wrap">
+      <div className="theory-toolbar">
+        <button className={`tbtn ${connectFrom !== null ? 'brass' : ''}`} onClick={() => setConnectFrom(connectFrom !== null ? null : '')}>
+          {connectFrom === null ? 'Connect nodes' : connectFrom === '' ? 'Click first node...' : 'Click second node...'}
+        </button>
+        <button className={`tbtn ${addPanel ? 'brass' : ''}`} onClick={() => setAddPanel(v => !v)}>Add node</button>
+        <span className="theory-toolbar-sep" />
+        <button className="tbtn" onClick={() => { const nv = { x: 40, y: 40, scale: 1 }; vpRef.current = nv; setVp(nv); }}>Reset view</button>
+        <span className="theory-hint">{connectFrom !== null ? (connectFrom === '' ? 'Click the first node to connect from' : 'Now click the target node') : selected ? 'Delete/Backspace to remove node -- Double-click to edit' : 'Drag nodes -- Scroll to zoom -- Drag canvas to pan'}</span>
+      </div>
+      {edgePending && (
+        <form className="theory-edge-form" onSubmit={submitEdge}>
+          <span style={{ fontSize: 12, color: 'var(--fg-3)', flexShrink: 0 }}>Type:</span>
+          <select value={edgeDraft.type} onChange={e => setEdgeDraft(d => ({ ...d, type: e.target.value }))}>
+            {THEORY_EDGE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+          </select>
+          <input value={edgeDraft.label} onChange={e => setEdgeDraft(d => ({ ...d, label: e.target.value }))} placeholder="Optional note..." autoFocus style={{ flex: 1 }} />
+          <button type="submit" className="tbtn brass">Add connection</button>
+          <button type="button" className="tbtn" onClick={() => { setEdgePending(null); setConnectFrom(null); }}>Cancel</button>
+        </form>
+      )}
+      <div className="theory-canvas-wrap">
+        {addPanel && (
+          <TheoryAddPanel publicNpcs={publicNpcs} existingNpcIds={existingNpcIds} onAdd={(label, type, npcId, note) => { onAddNode(label, type, npcId, note); setAddPanel(false); }} onClose={() => setAddPanel(false)} />
+        )}
+        <svg ref={svgRef} className="theory-svg" viewBox={`0 0 ${THEORY_W} ${THEORY_H}`} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} onMouseDown={onCanvasDown} style={{ cursor: connectFrom !== null ? 'crosshair' : 'default' }}>
+          <defs>
+            <marker id="th-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <polygon points="0 0, 7 3.5, 0 7" fill="oklch(0.45 0.02 60)" />
+            </marker>
+          </defs>
+          <g transform={`translate(${vp.x},${vp.y}) scale(${vp.scale})`}>
+            {(theories.edges || []).map(edge => {
+              const na = localNodes.find(n => n.id === edge.a), nb = localNodes.find(n => n.id === edge.b);
+              if (!na || !nb) return null;
+              const ax = na.x * THEORY_W, ay = na.y * THEORY_H, bx = nb.x * THEORY_W, by = nb.y * THEORY_H;
+              const col = THEORY_EDGE_COLOR[edge.type] || 'var(--fg-3)', isHov = hovEdge === edge.id;
+              return (
+                <g key={edge.id}>
+                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke={col} strokeWidth={isHov ? 2.5 : 1.5} strokeOpacity={isHov ? 0.9 : 0.5} strokeDasharray={edge.type === 'unknown' ? '6,4' : undefined} markerEnd="url(#th-arrow)" />
+                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke="transparent" strokeWidth={18} onMouseEnter={() => setHovEdge(edge.id)} onMouseLeave={() => setHovEdge(null)} onClick={() => { if (window.confirm('Remove this connection?')) onRemoveEdge(edge.id); }} style={{ cursor: 'pointer' }} />
+                  <text x={(ax + bx) / 2} y={(ay + by) / 2 - 8} textAnchor="middle" fontSize={10} fill={col} fillOpacity={0.8} style={{ userSelect: 'none', pointerEvents: 'none' }}>{edge.label || edge.type}</text>
+                </g>
+              );
+            })}
+            {localNodes.map(node => {
+              const cx = node.x * THEORY_W, cy = node.y * THEORY_H;
+              const isSel = selected === node.id, isConnSrc = connectFrom === node.id;
+              const col = THEORY_TYPE_COLOR[node.type] || 'var(--fg-3)';
+              const suspRing = node.suspicion === 'high' ? 'var(--crimson)' : node.suspicion === 'medium' ? 'var(--amber)' : 'var(--forest)';
+              const initials = (node.label || '?').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <g key={node.id} style={{ cursor: 'pointer' }} onMouseDown={e => onNodeDown(e, node)} onDoubleClick={e => { e.stopPropagation(); setEditNode({ ...node }); }}>
+                  {(isSel || isConnSrc) && <circle cx={cx} cy={cy} r={NODE_R + 8} fill="none" stroke={isConnSrc ? 'var(--amber)' : 'white'} strokeWidth={1.5} strokeOpacity={0.55} />}
+                  <circle cx={cx} cy={cy} r={NODE_R + 3} fill="none" stroke={suspRing} strokeWidth={2.5} strokeOpacity={0.4} />
+                  <circle cx={cx} cy={cy} r={NODE_R} fill="oklch(0.16 0.015 60)" stroke={col} strokeWidth={isSel ? 2.5 : 1.5} />
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight={700} fill={col} style={{ userSelect: 'none', pointerEvents: 'none', fontFamily: 'var(--f-display)' }}>{initials}</text>
+                  <text x={cx} y={cy + NODE_R + 15} textAnchor="middle" fontSize={11.5} fill="var(--fg-1)" style={{ userSelect: 'none', pointerEvents: 'none' }}>{node.label.length > 16 ? node.label.slice(0, 15) + '...' : node.label}</text>
+                  {node.note && <text x={cx} y={cy + NODE_R + 28} textAnchor="middle" fontSize={9.5} fill="var(--fg-4)" style={{ userSelect: 'none', pointerEvents: 'none' }}>{node.note.slice(0, 26)}{node.note.length > 26 ? '...' : ''}</text>}
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+      {editNode && <TheoryNodeEditor node={editNode} onSave={p => { onUpdateNode(editNode.id, p); setEditNode(null); }} onRemove={() => { onRemoveNode(editNode.id); setEditNode(null); setSelected(null); }} onClose={() => setEditNode(null)} />}
+    </div>
+  );
+}
+
+function TheoryAddPanel({ publicNpcs, existingNpcIds, onAdd, onClose }) {
+  const [tab, setTab] = React.useState(publicNpcs.length ? 'npc' : 'custom');
+  const [label, setLabel] = React.useState('');
+  const [type, setType] = React.useState('unknown');
+  const [note, setNote] = React.useState('');
+  const iS = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.14 0.01 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 12.5, outline: 'none', fontFamily: 'inherit' };
+  const addCustom = e => { e.preventDefault(); if (!label.trim()) return; onAdd(label, type, null, note); };
+  return (
+    <div className="theory-add-panel">
+      <div className="theory-add-head"><span>Add to board</span><button type="button" onClick={onClose}>x</button></div>
+      <div className="theory-subtabs">
+        <button type="button" className={tab === 'npc' ? 'active' : ''} onClick={() => setTab('npc')}>Known NPC</button>
+        <button type="button" className={tab === 'custom' ? 'active' : ''} onClick={() => setTab('custom')}>Unknown / Theory</button>
+      </div>
+      {tab === 'npc' && (
+        <div className="theory-npc-list">
+          {publicNpcs.length === 0 && <div className="muted" style={{ padding: 12, fontSize: 12 }}>No NPCs published by the DM yet.</div>}
+          {publicNpcs.map(n => {
+            const added = existingNpcIds.includes(n.id);
+            return <button key={n.id} type="button" className="theory-npc-btn" disabled={added} onClick={() => onAdd(n.name, 'npc', n.id, '')}><span className="theory-npc-name">{n.name}</span>{n.title && <span className="theory-npc-title">{n.title}</span>}{added && <span className="smallcaps" style={{ fontSize: 9, color: 'var(--fg-4)', marginLeft: 'auto', flexShrink: 0 }}>on board</span>}</button>;
+          })}
+        </div>
+      )}
+      {tab === 'custom' && (
+        <form onSubmit={addCustom} style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Label *</div><input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. The Contact, Unknown Mage..." style={iS} autoFocus /></div>
+          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Type</div><select value={type} onChange={e => setType(e.target.value)} style={{ ...iS, paddingRight: 8 }}><option value="unknown">Unknown person</option><option value="faction">Faction / organization</option><option value="event">Event / incident</option><option value="npc">Known NPC (manual)</option></select></div>
+          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Your theory (private)</div><textarea value={note} onChange={e => setNote(e.target.value)} placeholder="What do you suspect? What did you observe?" style={{ ...iS, resize: 'vertical', minHeight: 60 }} /></div>
+          <button type="submit" className="tbtn brass">Add to board</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function TheoryNodeEditor({ node, onSave, onRemove, onClose }) {
+  const [d, setD] = React.useState({ label: node.label, note: node.note || '', suspicion: node.suspicion || 'medium' });
+  const iS = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.14 0.01 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 12.5, outline: 'none', fontFamily: 'inherit' };
+  React.useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
+  return (
+    <div className="theory-node-editor-backdrop" onClick={onClose}>
+      <div className="theory-node-editor" onClick={e => e.stopPropagation()}>
+        <div className="theory-node-editor-head"><span>{node.label}</span><button type="button" onClick={onClose}>x</button></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px' }}>
+          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Name / label</div><input value={d.label} onChange={e => setD(p => ({ ...p, label: e.target.value }))} style={iS} autoFocus /></div>
+          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Your theory / private note</div><textarea value={d.note} onChange={e => setD(p => ({ ...p, note: e.target.value }))} placeholder="What do you suspect? What did you notice?" rows={5} style={{ ...iS, resize: 'vertical' }} /></div>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 6 }}>Suspicion level</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[['low', 'var(--forest)'], ['medium', 'var(--amber)'], ['high', 'var(--crimson)']].map(([s, col]) => (
+                <button key={s} type="button" className="tbtn" style={{ flex: 1, justifyContent: 'center', borderColor: d.suspicion === s ? col : undefined, color: d.suspicion === s ? col : undefined }} onClick={() => setD(p => ({ ...p, suspicion: s }))}>{s}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--hairline-2)' }}>
+            <button type="button" className="tbtn brass" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSave(d)}>Save</button>
+            <button type="button" className="tbtn" style={{ color: 'var(--crimson)' }} onClick={onRemove}>Remove node</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerTheories({ theories, publicNpcs, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
+  const nodes = theories?.nodes || [], edges = theories?.edges || [];
+  return (
+    <div className="player-tab-page theories-page">
+      <div className="theories-header">
+        <div><h2 style={{ fontFamily: 'var(--f-display)', fontSize: 24, margin: 0 }}>Theory Board</h2><p style={{ fontSize: 12.5, color: 'var(--fg-4)', margin: '4px 0 0' }}>Private to you -- your suspects, hunches, and conspiracy map.</p></div>
+        <span style={{ fontSize: 11, color: 'var(--fg-4)' }}>{nodes.length} node{nodes.length !== 1 ? 's' : ''} / {edges.length} connection{edges.length !== 1 ? 's' : ''}</span>
+      </div>
+      {nodes.length === 0 && edges.length === 0 && <div className="theory-empty"><p>Nothing mapped yet. Use <strong>Add node</strong> to place NPCs or theories, then <strong>Connect nodes</strong> to draw links.</p></div>}
+      <TheoryBoard theories={theories} publicNpcs={publicNpcs} onAddNode={onAddNode} onUpdateNode={onUpdateNode} onRemoveNode={onRemoveNode} onAddEdge={onAddEdge} onRemoveEdge={onRemoveEdge} />
+    </div>
+  );
+}
 // ─── MODALS / OVERLAYS ───────────────────────────────────────────────────────
 
 function NpcModal({ npc, onClose }) {
