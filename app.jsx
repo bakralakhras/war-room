@@ -1961,16 +1961,20 @@ function CampaignsManager({ onNav }) {
   const [campaigns, setCampaigns]         = React.useState(() => window.Store.campaigns.list());
   const [creating, setCreating]           = React.useState(false);
   const [newName, setNewName]             = React.useState('');
-  const [editId, setEditId]               = React.useState(null);
-  const [editName, setEditName]           = React.useState('');
+  const [editCampId, setEditCampId]       = React.useState(null);
+  const [editCampName, setEditCampName]   = React.useState('');
   const [newPlayerName, setNewPlayerName] = React.useState('');
   const [newPlayerChar, setNewPlayerChar] = React.useState('');
+  const [newPlayerHook, setNewPlayerHook] = React.useState('');
+  const [editPlayerId, setEditPlayerId]   = React.useState(null);
+  const [editPlayerDraft, setEditPlayerDraft] = React.useState({});
   const [showDemo, setShowDemo]           = React.useState(false);
+  const [showAddForm, setShowAddForm]     = React.useState(false);
 
   const activeCampaignId = window.Store.campaigns.active();
   const [players, setPlayers] = React.useState(() => {
     const s = window.Store.get();
-    return (s.campaign?.playerRoster || []).filter(p => !p._isDemo);
+    return s.campaign?.playerRoster || [];
   });
 
   const shareLink  = window.Store.getShareLink();
@@ -1998,8 +2002,8 @@ function CampaignsManager({ onNav }) {
   };
 
   const saveRename = (id) => {
-    if (editName.trim()) window.Store.campaigns.rename(id, editName.trim());
-    setEditId(null); refresh();
+    if (editCampName.trim()) window.Store.campaigns.rename(id, editCampName.trim());
+    setEditCampId(null); refresh();
   };
 
   const del = (id) => {
@@ -2012,9 +2016,22 @@ function CampaignsManager({ onNav }) {
   const addPlayer = (e) => {
     e.preventDefault();
     if (!newPlayerName.trim()) return;
-    const id = window.Store.addPlayer(newPlayerName, newPlayerChar);
-    setPlayers(prev => [...prev, { id, name: newPlayerName.trim(), character: newPlayerChar.trim() }]);
-    setNewPlayerName(''); setNewPlayerChar('');
+    const id = window.Store.addPlayer(newPlayerName, newPlayerChar, newPlayerHook);
+    const newP = { id, name: newPlayerName.trim(), character: newPlayerChar.trim(), hook: newPlayerHook.trim() };
+    setPlayers(prev => [...prev, newP]);
+    setNewPlayerName(''); setNewPlayerChar(''); setNewPlayerHook('');
+    setShowAddForm(false);
+  };
+
+  const startEditPlayer = (p) => {
+    setEditPlayerId(p.id);
+    setEditPlayerDraft({ name: p.name, character: p.character || '', hook: p.hook || '' });
+  };
+
+  const saveEditPlayer = (id) => {
+    window.Store.updatePlayer(id, editPlayerDraft);
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...editPlayerDraft } : p));
+    setEditPlayerId(null);
   };
 
   const removePlayer = (id) => {
@@ -2066,11 +2083,11 @@ function CampaignsManager({ onNav }) {
         <div className="card cornered" style={{ marginBottom: 20, borderLeft: '3px solid var(--brass)' }}>
           <div className="head">
             <Icon.WarRoom />
-            {editId === activeCampaignId ? (
+            {editCampId === activeCampaignId ? (
               <input
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveRename(activeCampaignId); if (e.key === 'Escape') setEditId(null); }}
+                value={editCampName}
+                onChange={e => setEditCampName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveRename(activeCampaignId); if (e.key === 'Escape') setEditCampId(null); }}
                 style={{ ...iStyle, flex: 1, fontSize: 13, padding: '4px 8px' }}
                 autoFocus
               />
@@ -2082,13 +2099,13 @@ function CampaignsManager({ onNav }) {
           </div>
           <div className="body" style={{ padding: '12px 16px' }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-              {editId === activeCampaignId ? (
+              {editCampId === activeCampaignId ? (
                 <>
                   <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => saveRename(activeCampaignId)}>Save</button>
-                  <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditId(null)}>Cancel</button>
+                  <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditCampId(null)}>Cancel</button>
                 </>
               ) : (
-                <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditId(activeCampaignId); setEditName(activeCampaign.name); }}>Rename</button>
+                <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditCampId(activeCampaignId); setEditCampName(activeCampaign.name); }}>Rename</button>
               )}
               {campaigns.length > 1 && (
                 <button className="tbtn" style={{ fontSize: 11, color: 'var(--fg-3)' }} onClick={() => del(activeCampaignId)}>Delete</button>
@@ -2104,61 +2121,95 @@ function CampaignsManager({ onNav }) {
                 <Icon.PlayerView />
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-2)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Players</span>
                 <span style={{ fontSize: 11, color: 'var(--fg-4)', marginLeft: 4 }}>
-                  {players.length ? `${players.length} player${players.length !== 1 ? 's' : ''}` : 'none yet'}
+                  {players.length ? `${players.length} player${players.length !== 1 ? 's' : ''}` : 'none added'}
                 </span>
+                <div className="spacer" />
+                <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => setShowAddForm(v => !v)}>
+                  <Icon.Plus /> Add player
+                </button>
               </div>
 
               {players.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
                   {players.map(p => (
-                    <div key={p.id} style={{ padding: '10px 12px', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)', display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                          <span style={{ fontFamily: 'var(--f-display)', fontSize: 15 }}>{p.name}</span>
-                          {p.character && <span style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>{p.character}</span>}
+                    <div key={p.id} style={{ border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)', overflow: 'hidden' }}>
+                      {editPlayerId === p.id ? (
+                        /* Edit mode */
+                        <div style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                            <div style={{ flex: '1 1 130px' }}>
+                              <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Player name</div>
+                              <input value={editPlayerDraft.name} onChange={e => setEditPlayerDraft(d => ({ ...d, name: e.target.value }))} style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} autoFocus />
+                            </div>
+                            <div style={{ flex: '1 1 130px' }}>
+                              <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Character name</div>
+                              <input value={editPlayerDraft.character} onChange={e => setEditPlayerDraft(d => ({ ...d, character: e.target.value }))} placeholder="optional" style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} />
+                            </div>
+                          </div>
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Hook / private note for this player <span style={{ opacity: 0.5 }}>(shown in their player view)</span></div>
+                            <input value={editPlayerDraft.hook} onChange={e => setEditPlayerDraft(d => ({ ...d, hook: e.target.value }))} placeholder="e.g. Your brother died with the signet. Halsane knows more." style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => saveEditPlayer(p.id)}>Save</button>
+                            <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditPlayerId(null)}>Cancel</button>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
-                          <input readOnly value={playerLink(p.id)} style={{ ...iStyle, flex: 1, fontSize: 10.5, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)', padding: '4px 8px' }} onClick={e => e.target.select()} />
-                          <button className="tbtn brass" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => copyLink(playerLink(p.id))}>Copy</button>
-                          <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => window.open(playerLink(p.id), '_blank', 'noopener')}>Preview</button>
+                      ) : (
+                        /* View mode */
+                        <div style={{ padding: '10px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontFamily: 'var(--f-display)', fontSize: 16 }}>{p.name}</span>
+                                {p.character && <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>plays <em>{p.character}</em></span>}
+                              </div>
+                              {p.hook && <div style={{ fontSize: 11.5, color: 'var(--fg-4)', marginTop: 3, fontStyle: 'italic' }}>"{p.hook}"</div>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                              <button className="tbtn" style={{ fontSize: 11 }} onClick={() => startEditPlayer(p)}>Edit</button>
+                              <button onClick={() => removePlayer(p.id)} style={{ background: 'none', border: 'none', color: 'var(--fg-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '2px 4px' }} title="Remove player">×</button>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input readOnly value={playerLink(p.id)} style={{ ...iStyle, flex: 1, fontSize: 10.5, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)', padding: '4px 8px' }} onClick={e => e.target.select()} />
+                            <button className="tbtn brass" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => copyLink(playerLink(p.id))}>Copy link</button>
+                            <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => window.open(playerLink(p.id), '_blank', 'noopener')}>Preview</button>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => removePlayer(p.id)}
-                        title="Remove player"
-                        style={{ background: 'none', border: 'none', color: 'var(--fg-4)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px', alignSelf: 'flex-start' }}
-                      >×</button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
-              <form onSubmit={addPlayer} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 140px' }}>
-                  <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginBottom: 4 }}>Player name</div>
-                  <input
-                    value={newPlayerName}
-                    onChange={e => setNewPlayerName(e.target.value)}
-                    placeholder="e.g. Kaiser"
-                    style={{ ...iStyle, fontSize: 12 }}
-                  />
-                </div>
-                <div style={{ flex: '1 1 140px' }}>
-                  <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginBottom: 4 }}>Character name <span style={{ opacity: 0.5 }}>(optional)</span></div>
-                  <input
-                    value={newPlayerChar}
-                    onChange={e => setNewPlayerChar(e.target.value)}
-                    placeholder="e.g. Aldric the Grey"
-                    style={{ ...iStyle, fontSize: 12 }}
-                  />
-                </div>
-                <button className="tbtn brass" type="submit" style={{ flexShrink: 0, alignSelf: 'flex-end' }}><Icon.Plus /> Add player</button>
-              </form>
+              {showAddForm && (
+                <form onSubmit={addPlayer} style={{ border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', padding: '12px 14px', background: 'var(--field-bg)', marginTop: players.length ? 0 : 4 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <div style={{ flex: '1 1 130px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Player name *</div>
+                      <input value={newPlayerName} onChange={e => setNewPlayerName(e.target.value)} placeholder="e.g. Kaiser" style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} autoFocus />
+                    </div>
+                    <div style={{ flex: '1 1 130px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Character name</div>
+                      <input value={newPlayerChar} onChange={e => setNewPlayerChar(e.target.value)} placeholder="e.g. Aldric the Grey" style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Hook / private note <span style={{ opacity: 0.5 }}>(shown only in their player view)</span></div>
+                    <input value={newPlayerHook} onChange={e => setNewPlayerHook(e.target.value)} placeholder="e.g. Your patron speaks in a dead king's voice…" style={{ ...iStyle, fontSize: 12, padding: '5px 8px' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="tbtn brass" type="submit"><Icon.Plus /> Add player</button>
+                    <button className="tbtn" type="button" onClick={() => setShowAddForm(false)}>Cancel</button>
+                  </div>
+                </form>
+              )}
             </div>
 
             {/* Base share link */}
             <div style={{ borderTop: '1px solid var(--hairline-2)', paddingTop: 14, marginTop: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--fg-4)', marginBottom: 6 }}>Base campaign link (no player identity)</div>
+              <div style={{ fontSize: 11, color: 'var(--fg-4)', marginBottom: 6 }}>Base campaign link — anyone with this sees the public view, no player identity</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input readOnly value={shareLink} style={{ ...iStyle, flex: 1, fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)' }} onClick={e => e.target.select()} />
                 <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => copyLink(shareLink)}>Copy</button>
@@ -2176,11 +2227,11 @@ function CampaignsManager({ onNav }) {
             <div key={c.id} className="card cornered">
               <div className="head">
                 <Icon.WarRoom />
-                {editId === c.id ? (
+                {editCampId === c.id ? (
                   <input
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveRename(c.id); if (e.key === 'Escape') setEditId(null); }}
+                    value={editCampName}
+                    onChange={e => setEditCampName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveRename(c.id); if (e.key === 'Escape') setEditCampId(null); }}
                     style={{ ...iStyle, flex: 1, fontSize: 13, padding: '4px 8px' }}
                     autoFocus
                   />
@@ -2191,13 +2242,13 @@ function CampaignsManager({ onNav }) {
               </div>
               <div className="body" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 14px' }}>
                 <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => switchTo(c.id)}>Switch to this</button>
-                {editId === c.id ? (
+                {editCampId === c.id ? (
                   <>
                     <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => saveRename(c.id)}>Save</button>
-                    <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditId(null)}>Cancel</button>
+                    <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditCampId(null)}>Cancel</button>
                   </>
                 ) : (
-                  <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditId(c.id); setEditName(c.name); }}>Rename</button>
+                  <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditCampId(c.id); setEditCampName(c.name); }}>Rename</button>
                 )}
                 <button className="tbtn" style={{ fontSize: 11, color: 'var(--fg-3)' }} onClick={() => del(c.id)}>Delete</button>
                 <div style={{ fontSize: 10.5, color: 'var(--fg-4)', alignSelf: 'center', marginLeft: 'auto' }}>
