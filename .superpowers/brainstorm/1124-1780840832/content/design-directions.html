@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Player View — Design Directions</title>
+<script src="http://localhost:62950/helper.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0e0d0b;
+    color: #c8b89a;
+    font-family: 'Inter', system-ui, sans-serif;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  .page-header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid rgba(200,184,154,.12);
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #e8d9c0;
+    letter-spacing: -.3px;
+  }
+  .page-header p {
+    color: #7a6f61;
+    font-size: 13.5px;
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+
+  .directions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid rgba(200,184,154,.08);
+  }
+
+  .direction {
+    padding: 0;
+    border-right: 1px solid rgba(200,184,154,.08);
+    cursor: pointer;
+    transition: background .2s;
+    position: relative;
+  }
+  .direction:last-child { border-right: none; }
+  .direction.selected { outline: 2px solid #c9a84c; outline-offset: -2px; }
+  .direction.selected .dir-badge { background: #c9a84c; color: #0e0d0b; }
+
+  .dir-label {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(200,184,154,.08);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .dir-label-main h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #e8d9c0;
+    margin-bottom: 3px;
+  }
+  .dir-label-main p {
+    font-size: 12px;
+    color: #7a6f61;
+    line-height: 1.4;
+    max-width: 200px;
+  }
+  .dir-badge {
+    background: rgba(200,184,154,.1);
+    color: #a08b6e;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .mockup-frame {
+    margin: 0;
+    background: #0a0908;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ══════════════════════════════════════════
+     DIRECTION A — CRPG Dashboard
+  ══════════════════════════════════════════ */
+  .mockup-a {
+    font-family: 'Inter', sans-serif;
+  }
+  .a-topbar {
+    background: #141210;
+    border-bottom: 1px solid rgba(201,168,76,.18);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .a-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 1;
+  }
+  .a-campaign-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #b8a882;
+    letter-spacing: .02em;
+  }
+  .a-sep { color: #3a3730; font-size: 12px; }
+  .a-desk-label {
+    font-size: 11px;
+    color: #c9a84c;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .a-status-pill {
+    background: rgba(86,180,100,.15);
+    color: #56b464;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 99px;
+    letter-spacing: .05em;
+  }
+
+  /* Character "HUD bar" */
+  .a-hud {
+    background: linear-gradient(180deg, #1c1814 0%, #141210 100%);
+    border-bottom: 1px solid rgba(201,168,76,.22);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .a-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: radial-gradient(circle at 50% 20%, rgba(201,168,76,.18), transparent 60%), #1e1a14;
+    border: 1.5px solid rgba(201,168,76,.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif;
+    font-size: 22px;
+    color: #c9a84c;
+    font-style: italic;
+  }
+  .a-char-info h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ede3d3;
+    line-height: 1.1;
+    margin-bottom: 2px;
+  }
+  .a-char-info .role {
+    font-size: 11.5px;
+    color: #8a7d6a;
+  }
+  .a-char-info .location-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(201,168,76,.1);
+    border: 1px solid rgba(201,168,76,.2);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10.5px;
+    color: #c9a84c;
+    margin-top: 5px;
+  }
+  .a-vitals {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+    min-width: 120px;
+  }
+  .a-hp-label {
+    font-size: 10px;
+    color: #6a6056;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .a-hp-bar-wrap {
+    width: 120px;
+    height: 8px;
+    background: rgba(255,255,255,.07);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .a-hp-bar {
+    height: 100%;
+    width: 73%;
+    background: linear-gradient(90deg, #4e9e58, #6cc878);
+    border-radius: 4px;
+  }
+  .a-hp-text {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #6cc878;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Nav tabs */
+  .a-tabs {
+    background: #111009;
+    display: flex;
+    border-bottom: 1px solid rgba(200,184,154,.1);
+    overflow: hidden;
+  }
+  .a-tab {
+    padding: 9px 14px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #6a6056;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-right: 1px solid rgba(200,184,154,.07);
+  }
+  .a-tab.active { background: rgba(201,168,76,.07); color: #c9a84c; border-bottom: 2px solid #c9a84c; }
+  .a-tab small { font-size: 9px; color: #4a4440; }
+  .a-tab.active small { color: #7a6840; }
+
+  /* Overview content */
+  .a-content {
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .a-card {
+    background: #161410;
+    border: 1px solid rgba(200,184,154,.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .a-card .card-eyebrow {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #5a5248;
+    margin-bottom: 5px;
+  }
+  .a-card h3 { font-size: 13.5px; color: #d8cbb6; font-weight: 600; margin-bottom: 3px; }
+  .a-card p { font-size: 11.5px; color: #6a6056; line-height: 1.45; }
+  .a-card-goals { grid-column: 1 / -1; }
+  .goal-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(200,184,154,.06);
+    font-size: 12px;
+    color: #a09080;
+  }
+  .goal-item:last-child { border-bottom: none; }
+  .goal-check {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid rgba(201,168,76,.3);
+    flex-shrink: 0;
+  }
+  .goal-check.done { background: rgba(201,168,76,.25); border-color: #c9a84c; }
+
+  /* ══════════════════════════════════════════
+     DIRECTION B — Illuminated Journal
+  ══════════════════════════════════════════ */
+  .mockup-b {
+    font-family: 'Georgia', serif;
+  }
+  .b-topbar {
+    background: #0f0d0b;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(200,184,154,.1);
+  }
+  .b-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #6a6056;
+    font-family: 'Inter', sans-serif;
+  }
+  .b-status { font-size: 10px; color: #56b464; font-family: 'Inter', sans-serif; }
+
+  /* Hero — full atmospheric treatment */
+  .b-hero {
+    position: relative;
+    padding: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(201,168,76,.09), transparent 70%),
+      linear-gradient(180deg, #1a1610 0%, #0f0d0a 100%);
+    border-bottom: 1px solid rgba(201,168,76,.15);
+    overflow: hidden;
+  }
+  .b-hero-inner {
+    position: relative;
+    z-index: 1;
+    padding: 24px 20px 20px;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .b-illuminated {
+    width: 80px;
+    height: 80px;
+    border-radius: 6px;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(201,168,76,.25), transparent 60%),
+      #1c1710;
+    border: 1px solid rgba(201,168,76,.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif;
+    font-size: 36px;
+    font-style: italic;
+    color: #c9a84c;
+    text-shadow: 0 0 30px rgba(201,168,76,.4);
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(201,168,76,.2), 0 8px 24px rgba(0,0,0,.5);
+  }
+  .b-char-name {
+    font-size: 26px;
+    color: #f0e6d4;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -.3px;
+    margin-bottom: 3px;
+  }
+  .b-char-role {
+    font-size: 12px;
+    color: #8a7b65;
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+    letter-spacing: .02em;
+    margin-bottom: 10px;
+  }
+  .b-instinct-label {
+    font-size: 9.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #6a5e4e;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .b-instinct-text {
+    font-size: 13px;
+    color: #bfae94;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .b-session-line {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: #5a5248;
+    letter-spacing: .06em;
+  }
+
+  /* Book-style tab bar */
+  .b-tabs {
+    display: flex;
+    gap: 0;
+    background: #0f0d0a;
+    border-bottom: 1px solid rgba(200,184,154,.1);
+    padding: 0 16px;
+  }
+  .b-tab {
+    padding: 11px 16px 10px;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    color: #5a5248;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .b-tab.active { color: #c9a84c; border-bottom-color: #c9a84c; }
+  .b-tab-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #c9a84c;
+    opacity: 0.5;
+  }
+  .b-tab.active .b-tab-dot { opacity: 1; }
+
+  /* Overview: editorial layout */
+  .b-content {
+    padding: 20px 18px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .b-divider-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #5a5248;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .b-divider-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(200,184,154,.1);
+  }
+  .b-focus-trio {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .b-focus-cell {
+    background: linear-gradient(145deg, rgba(28,22,14,.9), rgba(18,14,10,.95));
+    border: 1px solid rgba(200,184,154,.1);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .b-cell-label {
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #5a5248;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .b-cell-title {
+    font-size: 14px;
+    color: #e0d3be;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+  .b-cell-text {
+    font-size: 11.5px;
+    font-family: 'Inter', sans-serif;
+    color: #6a6056;
+    line-height: 1.45;
+  }
+  .b-goals-list { display: flex; flex-direction: column; gap: 6px; }
+  .b-goal {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: #a09080;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.4;
+  }
+  .b-goal-marker {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(201,168,76,.3);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ══════════════════════════════════════════
+     DIRECTION C — War Room Terminal
+  ══════════════════════════════════════════ */
+  .mockup-c {
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Sidebar + main split */
+  .c-layout {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    min-height: 320px;
+  }
+
+  /* Sidebar */
+  .c-sidebar {
+    background: #0c0b09;
+    border-right: 1px solid rgba(200,184,154,.1);
+    display: flex;
+    flex-direction: column;
+  }
+  .c-sidebar-header {
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid rgba(200,184,154,.08);
+  }
+  .c-char-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    background: radial-gradient(circle at 50% 20%, rgba(201,168,76,.15), transparent 60%), #1a1610;
+    border: 1px solid rgba(201,168,76,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif;
+    font-size: 18px;
+    color: #c9a84c;
+    margin-bottom: 8px;
+  }
+  .c-char-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e8d9c0;
+    line-height: 1.1;
+  }
+  .c-char-role {
+    font-size: 10.5px;
+    color: #5a5248;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .c-hp-mini {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .c-hp-mini-bar {
+    flex: 1;
+    height: 5px;
+    background: rgba(255,255,255,.07);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .c-hp-mini-fill {
+    height: 100%;
+    width: 73%;
+    background: #4e9e58;
+    border-radius: 3px;
+  }
+  .c-hp-mini-val {
+    font-size: 10px;
+    font-weight: 600;
+    color: #4e9e58;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+  }
+
+  .c-nav { flex: 1; padding: 8px 0; }
+  .c-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #5a5248;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .c-nav-item.active {
+    color: #c9a84c;
+    background: rgba(201,168,76,.07);
+    border-left-color: #c9a84c;
+  }
+  .c-nav-item .nav-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: .5;
+    flex-shrink: 0;
+  }
+  .c-nav-item .nav-count {
+    margin-left: auto;
+    font-size: 10px;
+    background: rgba(200,184,154,.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .c-nav-item.active .nav-count { background: rgba(201,168,76,.2); color: #a08840; }
+
+  /* Main content area */
+  .c-main {
+    background: #0f0d0b;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .c-location-banner {
+    background: linear-gradient(135deg, rgba(20,16,10,.95), rgba(14,12,8,.98));
+    border: 1px solid rgba(201,168,76,.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .c-location-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c9a84c;
+    box-shadow: 0 0 8px rgba(201,168,76,.5);
+    flex-shrink: 0;
+  }
+  .c-location-info { flex: 1; min-width: 0; }
+  .c-location-info .loc-label {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #5a5248;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .c-location-info .loc-name {
+    font-size: 14px;
+    color: #ddd0b8;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .c-location-info .loc-note {
+    font-size: 11px;
+    color: #5a5248;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .c-session-tag {
+    font-size: 10px;
+    font-weight: 700;
+    color: #6a5e4e;
+    border: 1px solid rgba(200,184,154,.12);
+    padding: 3px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .c-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    flex: 1;
+  }
+  .c-panel {
+    background: #141210;
+    border: 1px solid rgba(200,184,154,.1);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow: hidden;
+  }
+  .c-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(200,184,154,.07);
+  }
+  .c-panel-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #5a5248;
+  }
+  .c-panel-title.brass { color: #a08840; }
+  .c-panel-badge {
+    font-size: 9px;
+    background: rgba(200,184,154,.08);
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #6a6056;
+  }
+
+  .c-goal-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 11.5px;
+    color: #8a7d6a;
+    border-bottom: 1px solid rgba(200,184,154,.05);
+  }
+  .c-goal-row:last-child { border-bottom: none; }
+  .c-check {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(201,168,76,.3);
+    flex-shrink: 0;
+  }
+  .c-intel-row {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(200,184,154,.05);
+  }
+  .c-intel-row:last-child { border-bottom: none; }
+  .c-intel-row strong { font-size: 12px; color: #c8b89a; display: block; }
+  .c-intel-row small { font-size: 10.5px; color: #5a5248; }
+
+  /* Pick overlay */
+  .direction:hover .dir-badge { opacity: .8; }
+  .select-hint {
+    text-align: center;
+    padding: 16px;
+    font-size: 12px;
+    color: #4a4440;
+    border-top: 1px solid rgba(200,184,154,.07);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Player View — Design Directions</h1>
+  <p>Three distinct feels. Click a direction to select it — or just tell me in the terminal what resonates.</p>
+</div>
+
+<div class="directions-grid">
+
+  <!-- ────────────────────────── DIRECTION A ────────────────────────── -->
+  <div class="direction" data-choice="a" onclick="toggleSelect(this)">
+    <div class="dir-label">
+      <div class="dir-label-main">
+        <h2>A — CRPG Dashboard</h2>
+        <p>Compact HUD with HP up top, dense info layout. Feels like BG3 or a CRPG character screen.</p>
+      </div>
+      <div class="dir-badge">Pick A</div>
+    </div>
+    <div class="mockup-frame mockup-a">
+      <div class="a-topbar">
+        <div class="a-topbar-left">
+          <span class="a-campaign-name">The Black Bell of Vaelthorne</span>
+          <span class="a-sep">/</span>
+          <span class="a-desk-label">Player Desk</span>
+        </div>
+        <span class="a-status-pill">live</span>
+      </div>
+      <div class="a-hud">
+        <div class="a-avatar">M</div>
+        <div class="a-char-info">
+          <h2>Marda Stonebrew</h2>
+          <div class="role">Dwarven Cleric · Order of the Pale Moon</div>
+          <div class="location-badge">⬡ Ashen Hollow</div>
+        </div>
+        <div class="a-vitals">
+          <div class="a-hp-label">Hit Points</div>
+          <div class="a-hp-bar-wrap"><div class="a-hp-bar"></div></div>
+          <div class="a-hp-text">45 / 61</div>
+        </div>
+      </div>
+      <div class="a-tabs">
+        <div class="a-tab active">Overview<small>at table</small></div>
+        <div class="a-tab">Character<small>sheet</small></div>
+        <div class="a-tab">Journal<small>3e · 1p</small></div>
+        <div class="a-tab">Intel<small>12 records</small></div>
+        <div class="a-tab">Party<small>2 members</small></div>
+      </div>
+      <div class="a-content">
+        <div class="a-card">
+          <div class="card-eyebrow">Current Place</div>
+          <h3>Ashen Hollow</h3>
+          <p>A flooded mining village where the church bell rings from underwater.</p>
+        </div>
+        <div class="a-card">
+          <div class="card-eyebrow">Next Thread</div>
+          <h3>The Bell Descends</h3>
+          <p>Find the bellpull before the second heir gets to the belfry.</p>
+        </div>
+        <div class="a-card a-card-goals">
+          <div class="card-eyebrow">Personal Goals</div>
+          <div class="goal-item"><div class="goal-check done"></div>Find out why Halsane hid the signet.</div>
+          <div class="goal-item"><div class="goal-check"></div>Ask one dangerous question next session.</div>
+          <div class="goal-item"><div class="goal-check"></div>Learn what happened to my brother.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────── DIRECTION B ────────────────────────── -->
+  <div class="direction" data-choice="b" onclick="toggleSelect(this)">
+    <div class="dir-label">
+      <div class="dir-label-main">
+        <h2>B — Illuminated Journal</h2>
+        <p>Atmospheric and literary. The character hero feels like an illuminated manuscript. More mood, less HUD.</p>
+      </div>
+      <div class="dir-badge">Pick B</div>
+    </div>
+    <div class="mockup-frame mockup-b">
+      <div class="b-topbar">
+        <div class="b-topbar-left">
+          <span>◈</span>
+          <span>The Black Bell of Vaelthorne</span>
+          <span style="color: #3a3730">/</span>
+          <span style="color: #7a6840">Player Desk</span>
+        </div>
+        <span class="b-status">● live</span>
+      </div>
+      <div class="b-hero">
+        <div class="b-hero-inner">
+          <div class="b-illuminated">M</div>
+          <div>
+            <div class="b-char-name">Marda Stonebrew</div>
+            <div class="b-char-role">Dwarven Cleric of the Pale Moon</div>
+            <div class="b-instinct-label">instinct</div>
+            <div class="b-instinct-text">"Find out why Halsane hid the signet. She knows more than she says."</div>
+          </div>
+        </div>
+        <div class="b-session-line">Session I · Ashen Hollow · The Margreave</div>
+      </div>
+      <div class="b-tabs">
+        <div class="b-tab active"><div class="b-tab-dot"></div>Overview</div>
+        <div class="b-tab"><div class="b-tab-dot" style="opacity:.2"></div>Character</div>
+        <div class="b-tab"><div class="b-tab-dot" style="opacity:.2"></div>Journal</div>
+        <div class="b-tab"><div class="b-tab-dot" style="opacity:.2"></div>Intel</div>
+        <div class="b-tab"><div class="b-tab-dot" style="opacity:.2"></div>Party</div>
+      </div>
+      <div class="b-content">
+        <div class="b-divider-label">Tonight's focus</div>
+        <div class="b-focus-trio">
+          <div class="b-focus-cell">
+            <div class="b-cell-label">Where you are</div>
+            <div class="b-cell-title">Ashen Hollow</div>
+            <div class="b-cell-text">A flooded mining village. The bell rings from underwater.</div>
+          </div>
+          <div class="b-focus-cell" style="border-color: rgba(201,168,76,.2);">
+            <div class="b-cell-label">Active thread</div>
+            <div class="b-cell-title">The Bell Descends</div>
+            <div class="b-cell-text">Find the bellpull before the second heir.</div>
+          </div>
+          <div class="b-focus-cell">
+            <div class="b-cell-label">Revealed truth</div>
+            <div class="b-cell-title">The Signet Rings</div>
+            <div class="b-cell-text">Both brother and Halsane wore identical signets.</div>
+          </div>
+        </div>
+        <div class="b-divider-label">Personal goals</div>
+        <div class="b-goals-list">
+          <div class="b-goal"><div class="b-goal-marker" style="background: rgba(201,168,76,.2); border-color: #c9a84c;"></div>Find out why Halsane hid the signet.</div>
+          <div class="b-goal"><div class="b-goal-marker"></div>Ask one dangerous question next session.</div>
+          <div class="b-goal"><div class="b-goal-marker"></div>Learn what happened to my brother under the black water.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────── DIRECTION C ────────────────────────── -->
+  <div class="direction" data-choice="c" onclick="toggleSelect(this)">
+    <div class="dir-label">
+      <div class="dir-label-main">
+        <h2>C — War Room Terminal</h2>
+        <p>Sidebar nav + main panel. Matches the DM's war room language. More like a dossier, less like a sheet.</p>
+      </div>
+      <div class="dir-badge">Pick C</div>
+    </div>
+    <div class="mockup-frame mockup-c">
+      <div class="a-topbar" style="padding: 9px 12px;">
+        <div class="a-topbar-left">
+          <span class="a-campaign-name">Black Bell · Vaelthorne</span>
+        </div>
+        <span class="a-status-pill">live</span>
+      </div>
+      <div class="c-layout">
+        <div class="c-sidebar">
+          <div class="c-sidebar-header">
+            <div class="c-char-avatar">M</div>
+            <div class="c-char-name">Marda Stonebrew</div>
+            <div class="c-char-role">Dwarven Cleric<br>Order of the Pale Moon</div>
+            <div class="c-hp-mini">
+              <div class="c-hp-mini-bar"><div class="c-hp-mini-fill"></div></div>
+              <div class="c-hp-mini-val">45/61</div>
+            </div>
+          </div>
+          <nav class="c-nav">
+            <div class="c-nav-item active">
+              <div class="c-nav-icon"></div>
+              Overview
+            </div>
+            <div class="c-nav-item">
+              <div class="c-nav-icon"></div>
+              Character
+            </div>
+            <div class="c-nav-item">
+              <div class="c-nav-icon"></div>
+              Journal
+              <span class="nav-count">3</span>
+            </div>
+            <div class="c-nav-item">
+              <div class="c-nav-icon"></div>
+              Intel
+              <span class="nav-count">12</span>
+            </div>
+            <div class="c-nav-item">
+              <div class="c-nav-icon"></div>
+              Party
+            </div>
+            <div class="c-nav-item">
+              <div class="c-nav-icon"></div>
+              Inspiration
+            </div>
+          </nav>
+        </div>
+        <div class="c-main">
+          <div class="c-location-banner">
+            <div class="c-location-dot"></div>
+            <div class="c-location-info">
+              <div class="loc-label">Current Location</div>
+              <div class="loc-name">Ashen Hollow, The Margreave</div>
+              <div class="loc-note">A flooded mining village — the bell rings from underwater</div>
+            </div>
+            <div class="c-session-tag">Session I</div>
+          </div>
+          <div class="c-two-col">
+            <div class="c-panel">
+              <div class="c-panel-head">
+                <div class="c-panel-title brass">Personal Goals</div>
+                <div class="c-panel-badge">3 active</div>
+              </div>
+              <div class="c-goal-row"><div class="c-check" style="background: rgba(201,168,76,.2)"></div>Find out why Halsane hid the signet.</div>
+              <div class="c-goal-row"><div class="c-check"></div>Ask one dangerous question.</div>
+              <div class="c-goal-row"><div class="c-check"></div>Learn what happened to my brother.</div>
+            </div>
+            <div class="c-panel">
+              <div class="c-panel-head">
+                <div class="c-panel-title">Active Threads</div>
+                <div class="c-panel-badge">2 quests</div>
+              </div>
+              <div class="c-intel-row"><strong>The Bell Descends</strong><small>Find the bellpull before the second heir.</small></div>
+              <div class="c-intel-row"><strong>The Rose Signet</strong><small>Why did both wear it? Who ordered it buried?</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="select-hint">Click a direction to highlight it, or just tell me in the terminal what resonates — or what you'd steal from each.</div>
+
+</body>
+</html>

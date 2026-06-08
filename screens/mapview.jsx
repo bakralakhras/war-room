@@ -7,6 +7,7 @@ function MapView({ state, onNav, onOpenNPC }) {
   const mapImage = campaign.mapImage || '';
   const mapImageName = campaign.mapImageName || '';
   const mapFileRef = React.useRef(null);
+  const locFileRef = React.useRef(null);
   const [selected, setSelected] = React.useState(locs.find(l => l.party)?.id || locs[0]?.id);
   const [layers, setLayers] = React.useState({
     political: true,
@@ -64,6 +65,21 @@ function MapView({ state, onNav, onOpenNPC }) {
     window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImage', value: '' });
     window.Store.dispatch({ type: 'CAMPAIGN_SET_FIELD', field: 'mapImageName', value: '' });
     if (mapFileRef.current) mapFileRef.current.value = '';
+  };
+
+  const setLocField = (field, value) => {
+    if (!sel) return;
+    window.Store.dispatch({ type: 'LOCATION_SET_FIELD', id: sel.id, field, value });
+  };
+
+  const readLocationImage = (file) => {
+    if (!file || !sel) return;
+    if (!String(file.type || '').startsWith('image/')) return;
+    readMapAsset(file, (image) => {
+      window.Store.dispatch({ type: 'LOCATION_SET_FIELD', id: sel.id, field: 'image', value: image });
+      window.Store.dispatch({ type: 'LOCATION_SET_FIELD', id: sel.id, field: 'imageSourceUrl', value: '' });
+      if (locFileRef.current) locFileRef.current.value = '';
+    });
   };
 
   // visible locations
@@ -213,6 +229,33 @@ function MapView({ state, onNav, onOpenNPC }) {
             <div className="body">
               {sel && (
                 <>
+                  <input ref={locFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => readLocationImage(e.target.files?.[0])} />
+                  <div className="location-image-panel">
+                    {sel.image ? (
+                      <img src={sel.image} alt={sel.label || sel.name || 'Location image'} />
+                    ) : (
+                      <div className="location-image-empty">
+                        <Icon.Locations />
+                        <span>{sel.kind || 'place'} visual</span>
+                      </div>
+                    )}
+                  </div>
+                  {(sel.imageCredit || sel.imageSourceUrl) && (
+                    <MapImageCredit credit={sel.imageCredit} sourceUrl={sel.imageSourceUrl} />
+                  )}
+                  <div className="row gap-sm" style={{ marginTop: 10, marginBottom: 12 }}>
+                    <button className="tbtn brass" onClick={() => locFileRef.current?.click()}>Upload place image</button>
+                    {sel.image && <button className="tbtn" onClick={() => setLocField('image', '')}>Clear</button>}
+                  </div>
+                  <div className="col" style={{ gap: 8, marginBottom: 12 }}>
+                    <Field label="Image URL" value={sel.image || ''} onChange={v => setLocField('image', v)} />
+                    <Field label="Source URL" value={sel.imageSourceUrl || ''} onChange={v => setLocField('imageSourceUrl', v)} />
+                    <Field label="Credit" value={sel.imageCredit || ''} onChange={v => setLocField('imageCredit', v)} />
+                    <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.35 }}>
+                      Pinterest page links may not render as images. Paste the image address or upload the saved image.
+                    </div>
+                  </div>
                   <div className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{sel.label}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>
                     {`coord ${(sel.x * 100).toFixed(0)}, ${(sel.y * 100).toFixed(0)} · ${sel.kind}`}
@@ -299,6 +342,39 @@ function LayerToggle({ label, value, onChange, dm }) {
       </button>
     </div>
   );
+}
+
+function MapImageCredit({ credit, sourceUrl }) {
+  if (!credit && !sourceUrl) return null;
+  return (
+    <div className="image-credit">
+      {credit && <span>{credit}</span>}
+      {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">source</a>}
+    </div>
+  );
+}
+
+function readMapAsset(file, onReady) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 1400;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const width = Math.max(1, Math.round(img.width * scale));
+      const height = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return onReady(reader.result);
+      ctx.drawImage(img, 0, 0, width, height);
+      onReady(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => onReady(reader.result);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ── Map canvas: parchment with hatching, rivers, pin overlay ──────────────

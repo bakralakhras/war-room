@@ -216,6 +216,39 @@ window.NPCS = [
   },
 ];
 
+window.NPC_IMAGE_REFS = {
+  halsane: {
+    image: "https://i.pinimg.com/736x/fb/77/d1/fb77d118d770ddd89e052c0346d813e4.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/dnd-character-inspiration-older-woman-female-old-character-portrait--790311434615351298/",
+    imageCredit: "Pinterest reference · older woman fantasy portrait",
+  },
+  caedren: {
+    image: "https://i.pinimg.com/736x/09/08/b1/0908b1cb4bb3ab12e6e8195d810a66a2.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/dnd-captain-havarr-knight-of-bahamut-by-anthonyfoti-on-deviantart--3025924723085076/",
+    imageCredit: "Pinterest reference · armored captain portrait",
+  },
+  ferren: {
+    image: "https://i.pinimg.com/736x/9b/2c/ae/9b2caed49adf648ff09aacbc727ca299.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/845339792588085577/",
+    imageCredit: "Pinterest reference · dark fantasy portrait",
+  },
+  theron: {
+    image: "https://i.pinimg.com/736x/33/60/c6/3360c6b1b72a23c39c70ae29bf3e7ea2.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/358176976592626504/",
+    imageCredit: "Pinterest reference · dark paladin/noble portrait",
+  },
+  renholloway: {
+    image: "https://i.pinimg.com/736x/82/cf/97/82cf9732ea732819e53bad5a343f754d.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/312296555407842003/",
+    imageCredit: "Pinterest reference · sea captain portrait",
+  },
+  child: {
+    image: "https://i.pinimg.com/736x/a4/72/80/a47280fdf891c7c8553f2efdb3580602.jpg",
+    imageSourceUrl: "https://www.pinterest.com/pin/351912466007881/",
+    imageCredit: "Pinterest reference · winter eladrin portrait",
+  },
+};
+
 window.SECRETS = [
   { id: "s1", title: "The Regent ordered the regicide.", weight: "Campaign", status: "sealed", revealsTo: "When the ledger is read in full.", relates: ["theron", "ferren"], onReveal: "Iron Concord clock advances 2. Pale Moon clock advances 1." },
   { id: "s2", title: "The Hollow Child is the rightful heir.", weight: "Campaign", status: "sealed", revealsTo: "When Halsane is given no other choice.", relates: ["child", "halsane"], onReveal: "Ashen Court clock fills. Veiled Hand turns hostile." },

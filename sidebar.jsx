@@ -1,9 +1,16 @@
 // Sidebar — primary navigation, brand mark, DM identity at foot.
 
-function Sidebar({ active, onNav, state }) {
+function Sidebar({ active, onNav, state, onClose }) {
   const campaign = state?.campaign || { name: 'War Room', subtitle: '' };
   const [campaigns, setCampaigns] = React.useState(() => window.Store.campaigns.list());
   const [showCampaignPicker, setShowCampaignPicker] = React.useState(false);
+  const [collapsedGroups, setCollapsedGroups] = React.useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('warroom.navCollapsed') || '{}');
+    } catch {
+      return {};
+    }
+  });
   const [, setNowTick] = React.useState(0);
 
   React.useEffect(() => {
@@ -68,6 +75,23 @@ function Sidebar({ active, onNav, state }) {
     },
   ];
 
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('warroom.navCollapsed', JSON.stringify(collapsedGroups));
+    } catch {}
+  }, [collapsedGroups]);
+
+  React.useEffect(() => {
+    const activeGroup = groups.find(g => g.items.some(it => it.id === active))?.label;
+    if (activeGroup && collapsedGroups[activeGroup]) {
+      setCollapsedGroups(prev => ({ ...prev, [activeGroup]: false }));
+    }
+  }, [active]);
+
+  const toggleGroup = (label) => {
+    setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
   const user = window.Auth?.session;
 
   return (
@@ -80,6 +104,11 @@ function Sidebar({ active, onNav, state }) {
           <div className="brand-name">War Room</div>
           <div className="brand-tag">v0.8</div>
         </div>
+        <button
+          onClick={onClose}
+          title="Close sidebar"
+          style={{ marginLeft: 'auto', background: 'oklch(0 0 0 / 0.25)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg-3)', cursor: 'pointer', fontSize: 13, padding: '3px 8px', lineHeight: 1, flexShrink: 0 }}
+        >✕</button>
       </div>
 
       {/* Campaign switcher */}
@@ -152,10 +181,23 @@ function Sidebar({ active, onNav, state }) {
       </div>
 
       <div className="side-scroll">
-        {groups.map((g) => (
-          <div className="nav-group" key={g.label}>
-            <div className="nav-group-label">{g.label}</div>
-            {g.items.map((it) => {
+        {groups.map((g) => {
+          const isCollapsed = !!collapsedGroups[g.label];
+          const activeInGroup = g.items.some(it => it.id === active);
+          const groupBadge = g.items.reduce((total, it) => total + (it.badge != null && it.badge !== 0 ? 1 : 0), 0);
+          return (
+            <div className={`nav-group ${isCollapsed ? 'collapsed' : ''}`} key={g.label}>
+              <button
+                className={`nav-group-label nav-group-toggle ${activeInGroup ? 'has-active' : ''}`}
+                type="button"
+                aria-expanded={!isCollapsed}
+                onClick={() => toggleGroup(g.label)}
+              >
+                <span className="nav-group-caret" aria-hidden="true">›</span>
+                <span className="nav-group-title">{g.label}</span>
+                {groupBadge > 0 && <span className="nav-group-badge">{groupBadge}</span>}
+              </button>
+              {!isCollapsed && g.items.map((it) => {
               const Ic = it.icon;
               const isActive = active === it.id;
               return (
@@ -176,9 +218,10 @@ function Sidebar({ active, onNav, state }) {
                   )}
                 </div>
               );
-            })}
-          </div>
-        ))}
+              })}
+            </div>
+          );
+        })}
       </div>
 
       <div className="side-foot">

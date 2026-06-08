@@ -7,6 +7,7 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
   const npc = npcs.find(n => n.id === npcId) || npcs[0];
   const [editing, setEditing] = React.useState(false);
   const [uploadError, setUploadError] = React.useState('');
+  const [lightbox, setLightbox] = React.useState(false);
 
   if (!npc) return <div className="empty"><div className="display">No character found.</div></div>;
 
@@ -19,6 +20,10 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
   ).slice(0, 5);
   const bonds = listValue(npc.bonds);
   const tags = listValue(npc.tags);
+  const imageRef = window.NPC_IMAGE_REFS?.[npc.id] || {};
+  const portrait = npc.image || imageRef.image || '';
+  const portraitSourceUrl = npc.imageSourceUrl || imageRef.imageSourceUrl || '';
+  const portraitCredit = npc.imageCredit || imageRef.imageCredit || '';
   const set = (field, value) => window.Store.dispatch({ type: 'NPC_SET_FIELD', id: npc.id, field, value });
   const inputStyle = {
     width: '100%',
@@ -112,7 +117,7 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                 aspectRatio: '4/5',
                 borderRadius: 'var(--r)',
                 border: '1px solid var(--brass-dim)',
-                background: npc.image ? 'oklch(0.14 0.01 60)' :
+                background: portrait ? 'oklch(0.14 0.01 60)' :
                   'repeating-linear-gradient(45deg, oklch(0.25 0.014 64) 0, oklch(0.25 0.014 64) 8px, oklch(0.21 0.014 60) 8px, oklch(0.21 0.014 60) 16px)',
                 position: 'relative',
                 overflow: 'hidden',
@@ -121,8 +126,10 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handlePortraitDrop}
               >
-                {npc.image ? (
-                  <img src={npc.image} alt={npc.name || 'Character portrait'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {portrait ? (
+                  <button type="button" onClick={() => setLightbox(true)} style={{ width: '100%', height: '100%', padding: 0, border: 0, background: 'transparent', cursor: 'zoom-in' }}>
+                    <img src={portrait} alt={npc.name || 'Character portrait'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </button>
                 ) : (
                   <>
                     <div style={{
@@ -136,7 +143,7 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                     </div>
                   </>
                 )}
-                {npc.image && (
+                {portrait && (
                   <button style={{
                     position: 'absolute', bottom: 8, left: 8,
                     padding: '3px 9px', fontSize: 10.5,
@@ -145,6 +152,9 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                   }} onClick={() => set('image', '')}>Clear</button>
                 )}
               </div>
+              {(portraitCredit || portraitSourceUrl) && (
+                <ImageCredit credit={portraitCredit} sourceUrl={portraitSourceUrl} />
+              )}
               <label className="tbtn brass" style={{
                 width: '100%',
                 justifyContent: 'center',
@@ -153,12 +163,12 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
                 overflow: 'hidden',
                 cursor: 'pointer',
               }}>
-                <Icon.Plus /> {npc.image ? 'Replace portrait' : 'Upload portrait'}
+                <Icon.Plus /> {portrait ? 'Replace portrait' : 'Upload portrait'}
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handlePortraitUpload}
-                  title={npc.image ? 'Replace portrait' : 'Upload portrait'}
+                  title={portrait ? 'Replace portrait' : 'Upload portrait'}
                   style={{
                     position: 'absolute',
                     inset: 0,
@@ -171,6 +181,16 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
               <div className="muted" style={{ marginTop: 6, fontSize: 11.5, textAlign: 'center' }}>
                 JPG, PNG, or WebP. You can also drop an image on the frame.
               </div>
+              {editing && (
+                <div className="col" style={{ gap: 8, marginTop: 12 }}>
+                  <input value={npc.image || ''} onChange={e => set('image', e.target.value)} placeholder="Paste direct image URL or Pinterest image address" style={{ ...inputStyle, fontSize: 12 }} />
+                  <input value={npc.imageSourceUrl || ''} onChange={e => set('imageSourceUrl', e.target.value)} placeholder="Pinterest/source page URL" style={{ ...inputStyle, fontSize: 12 }} />
+                  <input value={npc.imageCredit || ''} onChange={e => set('imageCredit', e.target.value)} placeholder="Credit / board / artist note" style={{ ...inputStyle, fontSize: 12 }} />
+                  <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.35 }}>
+                    If a Pinterest page URL does not render, paste the image address or upload the saved image.
+                  </div>
+                </div>
+              )}
               {uploadError && (
                 <div style={{
                   marginTop: 8,
@@ -320,6 +340,18 @@ function NPCProfile({ state, npcId, onNav, onOpenFaction, onOpenSecret }) {
 
         </div>
       </div>
+      {lightbox && portrait && (
+        <div className="image-lightbox" onClick={() => setLightbox(false)}>
+          <div className="image-lightbox-card" onClick={e => e.stopPropagation()}>
+            <button type="button" className="image-lightbox-close" onClick={() => setLightbox(false)}>Close</button>
+            <img src={portrait} alt={npc.name || 'Character portrait'} />
+            <div className="image-lightbox-caption">
+              <strong>{npc.name || 'Character portrait'}</strong>
+              <ImageCredit credit={portraitCredit} sourceUrl={portraitSourceUrl} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -398,6 +430,16 @@ function splitLines(value) {
 
 function firstName(value) {
   return String(value || 'unknown').trim().split(/\s+/)[0] || 'unknown';
+}
+
+function ImageCredit({ credit, sourceUrl }) {
+  if (!credit && !sourceUrl) return null;
+  return (
+    <div className="image-credit">
+      {credit && <span>{credit}</span>}
+      {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">source</a>}
+    </div>
+  );
 }
 
 function readPortrait(file, onReady, onError) {

@@ -3,16 +3,16 @@
 // ── Constants ─────────────────────────────────────────────────────────
 const CODEX_TYPES = [
   { id: 'lore',      label: 'Lore',      glyph: '❦',  color: 'var(--brass)' },
-  { id: 'history',   label: 'History',   glyph: '◇',  color: 'oklch(0.74 0.08 85)' },
+  { id: 'history',   label: 'History',   glyph: '◇',  color: 'var(--brass-dim)' },
   { id: 'character', label: 'Character', glyph: '◐',  color: 'var(--brass)' },
-  { id: 'place',     label: 'Place',     glyph: '◇',  color: 'oklch(0.70 0.09 145)' },
-  { id: 'faction',   label: 'Faction',   glyph: '✦',  color: 'oklch(0.72 0.12 28)' },
+  { id: 'place',     label: 'Place',     glyph: '◇',  color: 'var(--slate)' },
+  { id: 'faction',   label: 'Faction',   glyph: '✦',  color: 'var(--crimson)' },
   { id: 'mystery',   label: 'Mystery',   glyph: '☽',  color: 'var(--slate)' },
   { id: 'prophecy',  label: 'Prophecy',  glyph: '✧',  color: 'var(--slate)' },
-  { id: 'religion',  label: 'Religion',  glyph: '✶',  color: 'oklch(0.70 0.09 235)' },
-  { id: 'relic',     label: 'Relic',     glyph: '◈',  color: 'oklch(0.76 0.12 72)' },
-  { id: 'secret',    label: 'Secret',    glyph: '◆',  color: 'oklch(0.72 0.14 28)' },
-  { id: 'quest',     label: 'Quest',     glyph: '⚔',  color: 'oklch(0.70 0.10 145)' },
+  { id: 'religion',  label: 'Religion',  glyph: '✶',  color: 'var(--slate)' },
+  { id: 'relic',     label: 'Relic',     glyph: '◈',  color: 'var(--brass)' },
+  { id: 'secret',    label: 'Secret',    glyph: '◆',  color: 'var(--crimson)' },
+  { id: 'quest',     label: 'Quest',     glyph: '⚔',  color: 'var(--slate)' },
   { id: 'session',   label: 'Session',   glyph: '◈',  color: 'var(--amber)' },
 ];
 
@@ -238,9 +238,13 @@ function folderForCodexType(type) {
 function computeBacklinks(entryId, entryTitle, allEntries) {
   if (!entryTitle || entryTitle.length < 2) return [];
   const title = entryTitle.toLowerCase();
+  const wiki = `[[${title}]]`;
   return allEntries
     .filter(e => e.id !== entryId && e.body)
-    .filter(e => e.body.toLowerCase().includes(title))
+    .filter(e => {
+      const body = e.body.toLowerCase();
+      return body.includes(title) || body.includes(wiki);
+    })
     .map(e => ({ id: e.id, title: e.title, type: e.type }));
 }
 
@@ -284,6 +288,7 @@ function buildHighlight(text, entities) {
   // Headers
   out = out.replace(/^(## .+)$/gm, '<span class="cx-h2">$1</span>');
   out = out.replace(/^(# .+)$/gm,  '<span class="cx-h1">$1</span>');
+  out = out.replace(/\[\[([^\]]+)\]\]/g, '<mark class="cx-link cx-wiki">[[$1]]</mark>');
 
   // Entity auto-links (longest first to prevent partial shadowing)
   const sorted = [...entities].sort((a, b) => b.name.length - a.name.length);
@@ -304,6 +309,7 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
   const [selectedId,   setSelectedId]   = React.useState(() => entries[0]?.id || null);
   const [search,       setSearch]       = React.useState('');
   const [folderFilter, setFolderFilter] = React.useState(null);
+  const [sidebarOpen,  setSidebarOpen]  = React.useState(true);
 
   React.useEffect(() => {
     if (highlight) {
@@ -313,10 +319,10 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
   }, [highlight]);
 
   const allFolders = React.useMemo(() => {
-    const s = new Set(CX_FOLDERS);
+    const s = new Set(state.codexFolders || CX_FOLDERS);
     entries.forEach(e => { if (e.folder) s.add(e.folder); });
     return [...s];
-  }, [entries]);
+  }, [entries, state.codexFolders]);
 
   const filtered = React.useMemo(() => entries.filter(e => {
     if (folderFilter === '__uncat__') return !e.folder;
@@ -328,8 +334,10 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
     return true;
   }), [entries, folderFilter, search]);
 
-  const createNew = (type = 'lore') => {
-    const folder = (folderFilter && folderFilter !== '__uncat__') ? folderFilter : folderForCodexType(type);
+  const createNew = (type = 'lore', folderOverride = null) => {
+    const folder = folderOverride !== null
+      ? folderOverride
+      : (folderFilter && folderFilter !== '__uncat__') ? folderFilter : folderForCodexType(type);
     window.Store.dispatch({
       type: 'CODEX_ADD',
       title: 'Untitled ' + (CODEX_TYPES.find(t => t.id === type)?.label || 'Note'),
@@ -344,22 +352,45 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
     }, 0);
   };
 
+  const addFolder = (name) => {
+    window.Store.dispatch({ type: 'CODEX_FOLDER_ADD', name });
+    setFolderFilter(name);
+  };
+
+  const renameFolder = (from, to) => {
+    window.Store.dispatch({ type: 'CODEX_FOLDER_RENAME', from, to });
+    if (folderFilter === from) setFolderFilter(to);
+  };
+
+  const deleteFolder = (name) => {
+    window.Store.dispatch({ type: 'CODEX_FOLDER_REMOVE', name });
+    if (folderFilter === name) setFolderFilter(null);
+  };
+
   const selectedEntry = entries.find(e => e.id === selectedId);
 
   return (
-    <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      <CodexSidebar
-        entries={entries}
-        filtered={filtered}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        search={search}
-        setSearch={setSearch}
-        folderFilter={folderFilter}
-        setFolderFilter={setFolderFilter}
-        allFolders={allFolders}
-        onNew={createNew}
-      />
+    <div className={`cx-shell ${sidebarOpen ? '' : 'notes-closed'}`}>
+      {sidebarOpen ? (
+        <CodexSidebar
+          entries={entries}
+          filtered={filtered}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          search={search}
+          setSearch={setSearch}
+          folderFilter={folderFilter}
+          setFolderFilter={setFolderFilter}
+          allFolders={allFolders}
+          onNew={createNew}
+          onAddFolder={addFolder}
+          onRenameFolder={renameFolder}
+          onDeleteFolder={deleteFolder}
+          onToggleSidebar={() => setSidebarOpen(false)}
+        />
+      ) : (
+        <button className="cx-notes-tab" onClick={() => setSidebarOpen(true)}>Notes</button>
+      )}
       {selectedEntry ? (
         <CodexEditor
           key={selectedEntry.id}
@@ -377,6 +408,8 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
           onOpenNPC={onOpenNPC}
           onOpenFaction={onOpenFaction}
           onOpenSecret={onOpenSecret}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(v => !v)}
         />
       ) : (
         <CodexWelcome onNew={createNew} count={entries.length} />
@@ -386,9 +419,31 @@ function WorldCodex({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret, high
 }
 
 // ── CodexSidebar ──────────────────────────────────────────────────────
-function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSearch, folderFilter, setFolderFilter, allFolders, onNew }) {
+function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSearch, folderFilter, setFolderFilter, allFolders, onNew, onAddFolder, onRenameFolder, onDeleteFolder, onToggleSidebar }) {
   const [newMenu, setNewMenu] = React.useState(false);
+  const [addingFolder, setAddingFolder] = React.useState(false);
+  const [folderDraft, setFolderDraft] = React.useState('');
+  const [editingFolder, setEditingFolder] = React.useState(null);
+  const [editingDraft, setEditingDraft] = React.useState('');
+  const [armedFolder, setArmedFolder] = React.useState(null);
+  const [collapsedGroups, setCollapsedGroups] = React.useState({});
   const uncatCount = entries.filter(e => !e.folder).length;
+
+  const submitFolder = () => {
+    const name = folderDraft.trim();
+    if (!name) return;
+    onAddFolder(name);
+    setFolderDraft('');
+    setAddingFolder(false);
+  };
+
+  const submitRename = (from) => {
+    const name = editingDraft.trim();
+    if (!name || name === from) { setEditingFolder(null); return; }
+    onRenameFolder(from, name);
+    setEditingFolder(null);
+    setEditingDraft('');
+  };
 
   const groups = React.useMemo(() => {
     if (folderFilter) return [{ folder: folderFilter, items: filtered }];
@@ -403,23 +458,36 @@ function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSear
     return g;
   }, [filtered, folderFilter]);
 
+  const toggleGroup = (folder) => {
+    const key = folder || '__uncat__';
+    setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div className="cx-sidebar">
       <div className="cx-sidebar-top">
-        <div style={{ position: 'relative' }}>
+        <div className="cx-sidebar-actions">
+          <button className="tbtn" title="Collapse notes" onClick={onToggleSidebar}>Notes</button>
           <button className="tbtn brass" style={{ width: '100%', justifyContent: 'center', fontSize: 11.5 }}
             onClick={() => setNewMenu(v => !v)}>
             <Icon.Plus /> New Note
           </button>
+        </div>
+        <div style={{ position: 'relative' }}>
           {newMenu && (
             <div className="cx-new-menu">
-              {CODEX_TYPES.map(t => (
-                <button key={t.id} className="cx-new-opt"
-                  onClick={() => { onNew(t.id); setNewMenu(false); }}>
-                  <span style={{ color: t.color, width: 14, textAlign: 'center', fontSize: 10 }}>{t.glyph}</span>
-                  {t.label}
+              {allFolders.map(f => (
+                <button key={f} className="cx-new-opt"
+                  onClick={() => { onNew('lore', f); setNewMenu(false); setFolderFilter(f); }}>
+                  <span style={{ color: 'var(--brass)', width: 14, textAlign: 'center', fontSize: 10 }}>+</span>
+                  {f}
                 </button>
               ))}
+              <button className="cx-new-opt"
+                onClick={() => { onNew('lore', ''); setNewMenu(false); setFolderFilter('__uncat__'); }}>
+                <span style={{ color: 'var(--fg-4)', width: 14, textAlign: 'center', fontSize: 10 }}>+</span>
+                Uncategorized
+              </button>
             </div>
           )}
         </div>
@@ -431,17 +499,53 @@ function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSear
 
       <div className="cx-sidebar-scroll">
         <div className="cx-folder-tree">
-          <div className="cx-tree-label">Folders</div>
+          <div className="cx-tree-label cx-tree-label-row">
+            <span>Folders</span>
+            <button className="cx-icon-btn" title="New folder" onClick={() => setAddingFolder(v => !v)}>+</button>
+          </div>
+          {addingFolder && (
+            <div className="cx-folder-edit">
+              <input value={folderDraft} placeholder="Folder name" autoFocus
+                onChange={e => setFolderDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') submitFolder();
+                  if (e.key === 'Escape') { setAddingFolder(false); setFolderDraft(''); }
+                }} />
+              <button onClick={submitFolder}>Add</button>
+            </div>
+          )}
           <div className={`cx-folder-row ${!folderFilter ? 'active' : ''}`} onClick={() => setFolderFilter(null)}>
             <span>All notes</span><span className="cx-count">{entries.length}</span>
           </div>
           {allFolders.map(f => {
             const cnt = entries.filter(e => e.folder === f).length;
-            if (!cnt && !CX_FOLDERS.includes(f)) return null;
             return (
-              <div key={f} className={`cx-folder-row ${folderFilter === f ? 'active' : ''}`}
-                onClick={() => setFolderFilter(folderFilter === f ? null : f)}>
-                <span>{f}</span><span className="cx-count">{cnt}</span>
+              <div key={f} className={`cx-folder-row cx-folder-managed ${folderFilter === f ? 'active' : ''}`}
+                onClick={() => editingFolder ? null : setFolderFilter(folderFilter === f ? null : f)}>
+                {editingFolder === f ? (
+                  <input className="cx-folder-rename" value={editingDraft} autoFocus
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => setEditingDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') submitRename(f);
+                      if (e.key === 'Escape') { setEditingFolder(null); setEditingDraft(''); }
+                    }}
+                    onBlur={() => submitRename(f)} />
+                ) : (
+                  <span className="cx-folder-name">{f}</span>
+                )}
+                <span className="cx-folder-tools" onClick={e => e.stopPropagation()}>
+                  <span className="cx-count">{cnt}</span>
+                  <button className="cx-icon-btn" title="Rename folder"
+                    onClick={() => { setEditingFolder(f); setEditingDraft(f); setArmedFolder(null); }}>...</button>
+                  <button className={`cx-icon-btn ${armedFolder === f ? 'danger' : ''}`} title="Delete folder"
+                    onClick={() => {
+                      if (armedFolder === f) { onDeleteFolder(f); setArmedFolder(null); }
+                      else setArmedFolder(f);
+                    }}>
+                    {armedFolder === f ? '!' : 'x'}
+                  </button>
+                </span>
               </div>
             );
           })}
@@ -455,29 +559,33 @@ function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSear
         </div>
 
         <div style={{ borderTop: '1px solid var(--hairline-2)', marginTop: 4 }}>
-          {groups.map(({ folder, items }) => (
-            <div key={folder || '__u'}>
-              {!folderFilter && (
-                <div className="cx-tree-label" style={{ marginTop: 10, color: folder ? 'var(--fg-3)' : 'var(--fg-4)' }}>
-                  {folder || 'Uncategorized'}
-                </div>
-              )}
-              {items.map(e => {
-                const t = CODEX_TYPES.find(x => x.id === e.type) || CODEX_TYPES[0];
-                const preview = (e.body || '').replace(/\[DM\][\s\S]*?\[\/DM\]/g, '').replace(/^##?\s/gm, '').trim().slice(0, 52);
-                return (
-                  <div key={e.id} className={`cx-entry-row ${selectedId === e.id ? 'active' : ''}`}
-                    onClick={() => onSelect(e.id)}>
-                    <div className="cx-entry-name">
-                      <span style={{ color: t.color, fontSize: 9, flexShrink: 0 }}>{t.glyph}</span>
-                      <span>{e.title || 'Untitled'}</span>
+          {groups.map(({ folder, items }) => {
+            const key = folder || '__uncat__';
+            const collapsed = !!collapsedGroups[key];
+            return (
+              <div key={key} className="cx-note-group">
+                <button className="cx-group-header" onClick={() => toggleGroup(folder)}>
+                  <span className={`cx-caret ${collapsed ? '' : 'open'}`}>�</span>
+                  <span>{folder || 'Uncategorized'}</span>
+                  <span className="cx-count">{items.length}</span>
+                </button>
+                {!collapsed && items.map(e => {
+                  const t = CODEX_TYPES.find(x => x.id === e.type) || CODEX_TYPES[0];
+                  const preview = (e.body || '').replace(/\[DM\][\s\S]*?\[\/DM\]/g, '').replace(/^##?\s/gm, '').trim().slice(0, 52);
+                  return (
+                    <div key={e.id} className={`cx-entry-row ${selectedId === e.id ? 'active' : ''}`}
+                      onClick={() => onSelect(e.id)}>
+                      <div className="cx-entry-name">
+                        <span style={{ color: t.color, fontSize: 9, flexShrink: 0 }}>{t.glyph}</span>
+                        <span>{e.title || 'Untitled'}</span>
+                      </div>
+                      {preview && <div className="cx-entry-pre">{preview}...</div>}
                     </div>
-                    {preview && <div className="cx-entry-pre">{preview}…</div>}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  );
+                })}
+              </div>
+            );
+          })}
           {filtered.length === 0 && (
             <div className="cx-hint" style={{ padding: '12px 14px' }}>
               {entries.length === 0 ? 'No notes yet.' : 'Nothing matches.'}
@@ -490,21 +598,27 @@ function CodexSidebar({ entries, filtered, selectedId, onSelect, search, setSear
 }
 
 // ── CodexEditor ───────────────────────────────────────────────────────
-function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
+function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, onNav, onOpenNPC, onOpenFaction, onOpenSecret, sidebarOpen, onToggleSidebar }) {
   const [title,   setTitle]   = React.useState(entry.title  || '');
   const [body,    setBody]    = React.useState(stripLegacyDmTags(entry.body));
   const [type,    setType]    = React.useState(entry.type   || 'lore');
   const [folder,  setFolder]  = React.useState(entry.folder || '');
   const [tags,    setTags]    = React.useState(entry.tags   || []);
   const [attrs,   setAttrs]   = React.useState(entry.attributes || []);
+  const [image,   setImage]   = React.useState(entry.image || '');
+  const [imageSourceUrl, setImageSourceUrl] = React.useState(entry.imageSourceUrl || '');
+  const [imageCredit, setImageCredit] = React.useState(entry.imageCredit || '');
   const [tagIn,   setTagIn]   = React.useState('');
   const [attrK,   setAttrK]   = React.useState('');
   const [attrV,   setAttrV]   = React.useState('');
   const [saved,   setSaved]   = React.useState(true);
-  const [preview, setPreview] = React.useState(false);
+  const [mode,    setMode]    = React.useState('write');
+  const [inspectorOpen, setInspectorOpen] = React.useState(false);
+  const [mediaOpen, setMediaOpen] = React.useState(false);
   const [deleteArmed, setDeleteArmed] = React.useState(false);
   const timers  = React.useRef({});
   const bodyRef = React.useRef(null);
+  const imageFileRef = React.useRef(null);
 
   const clearFieldTimer = (field) => {
     if (!timers.current[field]) return;
@@ -568,12 +682,62 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
   };
   const rmAttr = i => { const next = attrs.filter((_, j) => j !== i); setAttrs(next); immediate('attributes', next); };
 
+  const readHeroImage = (file) => {
+    if (!file || !String(file.type || '').startsWith('image/')) return;
+    readCodexAsset(file, (value) => {
+      setImage(value);
+      setImageSourceUrl('');
+      immediate('image', value);
+      immediate('imageSourceUrl', '');
+      if (imageFileRef.current) imageFileRef.current.value = '';
+    });
+  };
+
   const fi = {
     background: 'oklch(0.16 0.012 60 / 0.55)', border: '1px solid var(--hairline-2)',
     borderRadius: 'var(--r)', color: 'var(--fg)', padding: '4px 8px',
     fontSize: 11.5, outline: 'none', fontFamily: 'inherit',
   };
   const typeInfo = CODEX_TYPES.find(t => t.id === type) || CODEX_TYPES[0];
+  const modes = [
+    { id: 'write', label: 'Write' },
+    { id: 'split', label: 'Split' },
+    { id: 'preview', label: 'Preview' },
+  ];
+
+  const updateBody = (next) => {
+    setBody(next);
+    autosave('body', next);
+  };
+
+  const insertSnippet = (before, after = '', fallback = '') => {
+    const node = bodyRef.current;
+    if (!node) {
+      updateBody(`${body}${before}${fallback}${after}`);
+      return;
+    }
+    const start = node.selectionStart ?? body.length;
+    const end = node.selectionEnd ?? start;
+    const selected = body.slice(start, end) || fallback;
+    const next = body.slice(0, start) + before + selected + after + body.slice(end);
+    updateBody(next);
+    requestAnimationFrame(() => {
+      node.focus();
+      const cursorStart = start + before.length;
+      const cursorEnd = cursorStart + selected.length;
+      node.setSelectionRange(cursorStart, cursorEnd);
+    });
+  };
+
+  const copyWikiLink = async () => {
+    const link = `[[${(title || 'Untitled').trim()}]]`;
+    try {
+      await navigator.clipboard?.writeText(link);
+      setSaved(true);
+    } catch {
+      insertSnippet(link);
+    }
+  };
 
   return (
     <div className="cx-editor">
@@ -585,9 +749,25 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
           <span style={{ fontSize: 10, color: saved ? 'var(--fg-4)' : 'var(--brass)', fontStyle: 'italic', transition: 'color 0.3s' }}>
             {saved ? '✓ saved' : 'saving…'}
           </span>
-          <button className={`tbtn ${preview ? 'brass' : ''}`} style={{ fontSize: 11.5 }}
-            onClick={() => setPreview(v => !v)}>
-            {preview ? '✎ Edit' : '◉ Preview'}
+          <button className={`tbtn ${sidebarOpen ? 'brass' : ''}`} style={{ fontSize: 11.5 }}
+            onClick={onToggleSidebar}>
+            Notes
+          </button>
+          <div className="cx-mode-switch" role="group" aria-label="Codex view mode">
+            {modes.map(m => (
+              <button key={m.id} className={`tbtn ${mode === m.id ? 'brass' : ''}`} style={{ fontSize: 11.5 }}
+                onClick={() => setMode(m.id)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <button className="tbtn" style={{ fontSize: 11.5 }}
+            onClick={copyWikiLink}>
+            Copy link
+          </button>
+          <button className={`tbtn ${inspectorOpen ? 'brass' : ''}`} style={{ fontSize: 11.5 }}
+            onClick={() => setInspectorOpen(v => !v)}>
+            Inspector
           </button>
           <button className={`tbtn ${deleteArmed ? 'danger' : ''}`} style={{ fontSize: 11.5 }}
             onClick={() => deleteArmed ? deleteNote() : setDeleteArmed(true)}>
@@ -625,24 +805,42 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
 
       {/* Body */}
       <div className="cx-body">
-        <div className="cx-write">
-          {preview ? (
-            <CodexPreview title={title} body={body} typeInfo={typeInfo} />
-          ) : (
-            <>
+        <div className={`cx-write cx-mode-${mode}`}>
+          {(mode === 'write' || mode === 'split') && (
+            <div className="cx-main-pane cx-editor-pane">
+              {image && (
+                <div className="cx-hero-strip">
+                  <img src={image} alt={title || 'Codex hero'} />
+                  <CodexImageCredit credit={imageCredit} sourceUrl={imageSourceUrl} />
+                </div>
+              )}
               <div className="cx-toolbar">
-                <span className="muted" style={{ fontSize: 10 }}>
-                  This book is DM-only. Use ## headings; entity names auto-highlight as you type.
+                <div className="cx-tool-group" aria-label="Formatting tools">
+                  <button className="tbtn" onClick={() => insertSnippet('## ', '', 'Heading')}>H2</button>
+                  <button className="tbtn" onClick={() => insertSnippet('- ', '', 'List item')}>List</button>
+                  <button className="tbtn" onClick={() => insertSnippet('> ', '', 'Quoted note')}>Quote</button>
+                  <button className="tbtn" onClick={() => insertSnippet('[[', ']]', title || 'Linked page')}>Link</button>
+                  <button className="tbtn" onClick={() => insertSnippet('\n## Scene\n\n## Clues\n\n## Open Questions\n', '', '')}>Session</button>
+                </div>
+                <span className="muted cx-toolbar-note">
+                  Entity names auto-highlight. Use [[Note title]] for explicit links.
                 </span>
               </div>
               <CodexBodyEditor ref={bodyRef} value={body} entities={entities}
-                onChange={v => { setBody(v); autosave('body', v); }} />
-            </>
+                onChange={updateBody} />
+            </div>
           )}
+
+          {(mode === 'split' || mode === 'preview') && (
+            <div className="cx-main-pane cx-preview-pane">
+              <CodexPreview title={title} body={body} typeInfo={typeInfo} image={image} imageCredit={imageCredit} imageSourceUrl={imageSourceUrl} />
+            </div>
+          )}
+
           <div className="cx-tags">
             {tags.map(t => (
               <span key={t} className="cx-tag">
-                {t}<button className="cx-tag-x" onClick={() => rmTag(t)}>✕</button>
+                {t}<button className="cx-tag-x" onClick={() => rmTag(t)}>x</button>
               </span>
             ))}
             <input className="cx-tag-in" value={tagIn} placeholder="+ tag"
@@ -650,17 +848,50 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }} />
           </div>
         </div>
-
         {/* Right panel */}
+        {inspectorOpen && (
         <div className="cx-right">
+          <div className="cx-panel cx-note-controls cx-media-panel">
+            <button className="cx-panel-toggle" onClick={() => setMediaOpen(v => !v)}>
+              <span>Media</span>
+              <span>{image ? 'image attached' : 'optional'}</span>
+            </button>
+            <input ref={imageFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => readHeroImage(e.target.files?.[0])} />
+            {image && !mediaOpen && (
+              <button className="cx-media-thumb" onClick={() => setMediaOpen(true)}>
+                <img src={image} alt="" />
+              </button>
+            )}
+            {mediaOpen && (
+              <>
+                {image && <div className="cx-image-drop"><img src={image} alt="" /></div>}
+                <div className="cx-control-stack" style={{ marginTop: 8 }}>
+                  <button className="tbtn brass" onClick={() => imageFileRef.current?.click()}>Upload image</button>
+                  {image && <button className="tbtn" onClick={() => { setImage(''); immediate('image', ''); }}>Clear image</button>}
+                </div>
+                <div className="cx-image-fields">
+                  <input style={fi} value={image} placeholder="Image URL / Pinterest image address"
+                    onChange={e => { setImage(e.target.value); autosave('image', e.target.value); }} />
+                  <input style={fi} value={imageSourceUrl} placeholder="Pinterest/source page URL"
+                    onChange={e => { setImageSourceUrl(e.target.value); autosave('imageSourceUrl', e.target.value); }} />
+                  <input style={fi} value={imageCredit} placeholder="Credit / artist / board"
+                    onChange={e => { setImageCredit(e.target.value); autosave('imageCredit', e.target.value); }} />
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="cx-panel cx-note-controls">
             <div className="cx-panel-hd">Note controls</div>
             <div className="cx-control-stack">
-              <button className={`tbtn ${preview ? '' : 'brass'}`} onClick={() => setPreview(false)}>
-                Edit note
-              </button>
-              <button className={`tbtn ${preview ? 'brass' : ''}`} onClick={() => setPreview(true)}>
-                Preview note
+              {modes.map(m => (
+                <button key={m.id} className={`tbtn ${mode === m.id ? 'brass' : ''}`} onClick={() => setMode(m.id)}>
+                  {m.label}
+                </button>
+              ))}
+              <button className="tbtn" onClick={copyWikiLink}>
+                Copy [[link]]
               </button>
               <button className={`tbtn ${deleteArmed ? 'danger' : ''}`}
                 onClick={() => deleteArmed ? deleteNote() : setDeleteArmed(true)}>
@@ -705,7 +936,9 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
               : backlinks.map(bl => {
                   const t = CODEX_TYPES.find(x => x.id === bl.type) || CODEX_TYPES[0];
                   return (
-                    <div key={bl.id} className="cx-bl">
+                    <div key={bl.id} className="cx-bl"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onSelect(bl.id)}>
                       <span style={{ color: t.color, fontSize: 9, marginRight: 5 }}>{t.glyph}</span>
                       {bl.title}
                     </div>
@@ -767,8 +1000,9 @@ function CodexEditor({ entry, allEntries, entities, state, onDelete, onSelect, o
             </button>
           </div>
         </div>
-      </div>
+        )}
     </div>
+      </div>
   );
 }
 
@@ -796,24 +1030,73 @@ const CodexBodyEditor = React.forwardRef(function CodexBodyEditor({ value, entit
 });
 
 // ── CodexPreview ──────────────────────────────────────────────────────
-function CodexPreview({ title, body, typeInfo }) {
+function CodexPreview({ title, body, typeInfo, image, imageCredit, imageSourceUrl }) {
   const cleanBody = stripLegacyDmTags(body);
+  const renderInline = (line, keyPrefix) => {
+    const parts = String(line).split(/(\[\[[^\]]+\]\])/g).filter(Boolean);
+    return parts.map((part, i) => {
+      const match = part.match(/^\[\[([^\]]+)\]\]$/);
+      if (match) return <span key={`${keyPrefix}-w-${i}`} className="cx-pv-wiki">{match[1]}</span>;
+      return <React.Fragment key={`${keyPrefix}-t-${i}`}>{part}</React.Fragment>;
+    });
+  };
   const renderLines = (text, pfx) =>
     text.split('\n').map((line, i) => {
       if (line.startsWith('## ')) return <div key={pfx + i} className="cx-pv-h2">{line.slice(3)}</div>;
       if (line.startsWith('# '))  return <div key={pfx + i} className="cx-pv-h1">{line.slice(2)}</div>;
       if (!line.trim()) return <div key={pfx + i} style={{ height: 6 }} />;
-      return <div key={pfx + i} className="cx-pv-line">{line}</div>;
+      if (line.startsWith('- ')) return <div key={pfx + i} className="cx-pv-line cx-pv-list">{renderInline(line.slice(2), pfx + i)}</div>;
+      if (line.startsWith('> ')) return <div key={pfx + i} className="cx-pv-line cx-pv-quote">{renderInline(line.slice(2), pfx + i)}</div>;
+      return <div key={pfx + i} className="cx-pv-line">{renderInline(line, pfx + i)}</div>;
     });
 
   return (
     <div className="cx-preview">
+      {image && (
+        <div className="cx-pv-hero">
+          <img src={image} alt={title || 'Codex hero'} />
+          <CodexImageCredit credit={imageCredit} sourceUrl={imageSourceUrl} />
+        </div>
+      )}
       <div className="cx-pv-eyebrow" style={{ color: typeInfo.color }}>{typeInfo.glyph} {typeInfo.label}</div>
       <div className="cx-pv-title display">{title || 'Untitled'}</div>
       <div style={{ height: 16 }} />
       {renderLines(cleanBody, 'p')}
     </div>
   );
+}
+
+function CodexImageCredit({ credit, sourceUrl }) {
+  if (!credit && !sourceUrl) return null;
+  return (
+    <div className="image-credit">
+      {credit && <span>{credit}</span>}
+      {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">source</a>}
+    </div>
+  );
+}
+
+function readCodexAsset(file, onReady) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 1500;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const width = Math.max(1, Math.round(img.width * scale));
+      const height = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return onReady(reader.result);
+      ctx.drawImage(img, 0, 0, width, height);
+      onReady(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => onReady(reader.result);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ── CodexWelcome ──────────────────────────────────────────────────────

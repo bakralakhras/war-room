@@ -337,41 +337,28 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
             </div>
             <div className="body">
               {npcPreview.length ? (
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+                <div className="likely-npc-grid">
                   {npcPreview.map(n => {
                     const fac = factions.find(f => f.id === n.faction);
                     return (
-                      <div key={n.id} className="clickable"
-                           onClick={() => onOpenNPC(n.id)}
-                           style={{
-                             padding: 12,
-                             borderRadius: 'var(--r)',
-                             border: '1px solid var(--hairline-2)',
-                             background: 'var(--card-bg)',
-                           }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          <div style={{
-                            width: 40, height: 40, borderRadius: '50%',
-                            background: 'var(--card-head-bg)',
-                            border: '1px solid var(--brass-dim)',
-                            display: 'grid', placeItems: 'center',
-                            fontFamily: 'var(--f-display)', fontSize: 17, color: 'var(--brass)',
-                            flexShrink: 0,
-                          }}>
+                      <div key={n.id} className="likely-npc-card clickable"
+                           onClick={() => onOpenNPC(n.id)}>
+                        <div className="likely-npc-head">
+                          <div className="likely-npc-avatar">
                             {n.image
-                              ? <img src={n.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }} />
+                              ? <img src={n.image} alt="" />
                               : initials(n.name)}
                           </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontFamily: 'var(--f-display)', fontSize: 15, lineHeight: 1.1 }}>{n.name || 'Unnamed NPC'}</div>
-                            <div className="muted" style={{ fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>{n.title || 'No title'}</div>
+                          <div className="likely-npc-title">
+                            <div className="likely-npc-name">{n.name || 'Unnamed NPC'}</div>
+                            <div className="likely-npc-role">{n.title || 'No title'}</div>
                           </div>
                         </div>
-                        <div style={{ marginTop: 10 }}>
+                        <div className="likely-npc-meta">
                           <DispPill d={n.disposition} />
-                          {fac && <span className="muted" style={{ fontSize: 11, marginLeft: 8 }}>{fac.name}</span>}
+                          {fac && <span className="likely-npc-faction">{fac.name}</span>}
                         </div>
-                        <div className="quote" style={{ fontSize: 12.5, marginTop: 10, color: 'var(--fg-1)', borderLeftWidth: 1 }}>
+                        <div className="quote likely-npc-quote">
                           "{n.quote || 'No quote recorded.'}"
                         </div>
                       </div>

@@ -64,6 +64,15 @@ function App() {
     return () => window.Store.stopBroadcast();
   }, []);
 
+  const [sidebarOpen, setSidebarOpen] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('warroom.sidebarOpen') ?? 'true'); } catch { return true; }
+  });
+  const toggleSidebar = () => setSidebarOpen(v => {
+    const next = !v;
+    try { localStorage.setItem('warroom.sidebarOpen', JSON.stringify(next)); } catch {}
+    return next;
+  });
+
   const nav = (screen, params = {}) => setRoute({ screen, params });
   const openNPC      = (id) => nav('npc',         { id });
   const openFaction  = (id) => nav('faction',     { id });
@@ -81,10 +90,10 @@ function App() {
   })();
 
   return (
-    <div className="app">
-      <Sidebar active={sidebarActive} onNav={(id) => nav(id)} state={state} />
+    <div className="app" style={{ gridTemplateColumns: sidebarOpen ? '236px 1fr' : '1fr' }}>
+      {sidebarOpen && <Sidebar active={sidebarActive} onNav={(id) => nav(id)} state={state} onClose={toggleSidebar} />}
       <main className="main">
-        <Topbar route={route} onNav={nav} state={state} />
+        <Topbar route={route} onNav={nav} state={state} sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
         <ScreenRouter route={route} nav={nav} state={state} onOpenNPC={openNPC} onOpenFaction={openFaction} onOpenSecret={openSecret} />
       </main>
 
@@ -123,7 +132,7 @@ function App() {
 }
 
 // ── Topbar (breadcrumb + search + quick) ──────────────────────────────
-function Topbar({ route, onNav, state }) {
+function Topbar({ route, onNav, state, sidebarOpen, onToggleSidebar }) {
   const crumb = (() => {
     switch (route.screen) {
       case 'warroom':       return ['Play', 'War Room'];
@@ -151,6 +160,14 @@ function Topbar({ route, onNav, state }) {
 
   return (
     <div className="topbar grain">
+      <button
+        className="tbtn sidebar-toggle"
+        onClick={onToggleSidebar}
+        title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        style={{ padding: '5px 10px', flexShrink: 0, fontSize: 16 }}
+      >
+        {sidebarOpen ? '«' : '»'}
+      </button>
       <div className="crumb">
         <Icon.WarRoom />
         <span>Vaelthorne</span>
@@ -932,35 +949,39 @@ function CharactersIndex({ state, onOpenNPC }) {
       <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {npcs.map(n => {
           const fac = factions.find(f => f.id === n.faction);
+          const portrait = n.image || window.NPC_IMAGE_REFS?.[n.id]?.image || '';
           return (
             <div key={n.id} className="card cornered clickable" onClick={() => onOpenNPC(n.id)}>
               <div className="body">
-                <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+                <div className="row" style={{ alignItems: 'stretch', gap: 14 }}>
                   <div style={{
-                    width: 48, height: 48, borderRadius: '50%',
-                    background: 'linear-gradient(160deg, oklch(0.4 0.04 50), oklch(0.22 0.04 30))',
+                    width: 92, minHeight: 122, borderRadius: 'var(--r)',
+                    background: portrait
+                      ? 'oklch(0.13 0.014 55)'
+                      : 'linear-gradient(160deg, oklch(0.4 0.04 50), oklch(0.22 0.04 30))',
                     border: '1px solid var(--brass-dim)',
                     display: 'grid', placeItems: 'center',
-                    fontFamily: 'var(--f-display)', fontSize: 20, color: 'var(--brass)',
+                    fontFamily: 'var(--f-display)', fontSize: 28, color: 'var(--brass)',
                     flexShrink: 0,
                     overflow: 'hidden',
+                    boxShadow: 'inset 0 0 0 1px oklch(1 0 0 / 0.05), 0 18px 34px -28px oklch(0 0 0 / 0.9)',
                   }}>
-                    {n.image
-                      ? <img src={n.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    {portrait
+                      ? <img src={portrait} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : (n.name || '?')[0]}
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--f-display)', fontSize: 17 }}>{n.name}</div>
+                  <div style={{ minWidth: 0, flex: 1, paddingTop: 3 }}>
+                    <div style={{ fontFamily: 'var(--f-display)', fontSize: 20, lineHeight: 1.15 }}>{n.name}</div>
                     <div className="muted" style={{ fontSize: 11.5, fontStyle: 'italic' }}>{n.title}</div>
+                    <div className="row wrap" style={{ marginTop: 12, gap: 6 }}>
+                      <DispPill d={n.disposition} />
+                      {fac && <span className="pill iron">{fac.name}</span>}
+                      {n.public && <span className="pill brass">player safe</span>}
+                    </div>
+                    <div className="quote" style={{ fontSize: 12.5, marginTop: 12, color: 'var(--fg-2)' }}>
+                      "{n.quote}"
+                    </div>
                   </div>
-                </div>
-                <div className="row" style={{ marginTop: 10, gap: 6 }}>
-                  <DispPill d={n.disposition} />
-                  {fac && <span className="pill iron">{fac.name}</span>}
-                  {n.public && <span className="pill brass">player safe</span>}
-                </div>
-                <div className="quote" style={{ fontSize: 12.5, marginTop: 10, color: 'var(--fg-2)' }}>
-                  "{n.quote}"
                 </div>
                 <div className="row gap-sm" style={{ marginTop: 10 }}>
                   <button className={n.public ? 'tbtn brass' : 'tbtn'} onClick={(e) => { e.stopPropagation(); window.Store.dispatch({ type: 'NPC_SET_FIELD', id: n.id, field: 'public', value: !n.public }); }}>

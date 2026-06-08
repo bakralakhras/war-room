@@ -4,6 +4,7 @@
 
 (function () {
   const DEFAULT_THEME = 'ashen-table';
+  const DEFAULT_CODEX_FOLDERS = ['Lore', 'Characters', 'Locations', 'Factions', 'Relics', 'Session Notes', 'Mysteries', 'Secrets', 'Quests'];
 
   // ── User identity ─────────────────────────────────────────────
   // Read from window.Auth if available, else fall back to Supabase's
@@ -54,7 +55,7 @@
       party: [], factions: [], npcs: [], secrets: [], rumors: [],
       quests: [], religions: [], relics: [], lore: [], relationships: { nodes: [], edges: [] },
       encounters: [], calendar: [], handouts: [], tables: [],
-      sessions: [], prep: [], locations: [], timeline: [], codex: [],
+      sessions: [], prep: [], locations: [], timeline: [], codex: [], codexFolders: [...DEFAULT_CODEX_FOLDERS],
     };
   }
 
@@ -71,7 +72,7 @@
       },
       party:     c.party.map(p => ({ ...p })),
       factions:  window.FACTIONS.map(f => ({ ...f, clock: { ...f.clock } })),
-      npcs:      window.NPCS.map(n => ({ ...n })),
+      npcs:      window.NPCS.map(n => withNpcImageRef({ ...n })),
       secrets:   window.SECRETS.map(s => ({ ...s, relates: s.relates || [], notes: '' })),
       rumors:    window.RUMORS.map(r => ({ ...r, delivered: false })),
       quests:    window.QUESTS.map(q => ({ ...q })),
@@ -96,6 +97,7 @@
       locations: window.MAP_LOCATIONS ? window.MAP_LOCATIONS.map(l => ({ ...l })) : [],
       timeline:  window.TIMELINE ? window.TIMELINE.map(e => ({ ...e })) : [],
       codex:     seededCodex,
+      codexFolders: [...DEFAULT_CODEX_FOLDERS],
     };
   }
 
@@ -272,6 +274,17 @@
     return [...lore, ...religions, ...relics];
   }
 
+  function withNpcImageRef(npc) {
+    const ref = window.NPC_IMAGE_REFS?.[npc.id];
+    if (!ref) return { imageSourceUrl: '', imageCredit: '', ...npc };
+    return {
+      ...npc,
+      image: npc.image || ref.image || '',
+      imageSourceUrl: npc.imageSourceUrl || ref.imageSourceUrl || '',
+      imageCredit: npc.imageCredit || ref.imageCredit || '',
+    };
+  }
+
   function cleanCodexBody(body) {
     return String(body || '').replace(/\[\/?DM\]/g, '').replace(/\n{4,}/g, '\n\n\n');
   }
@@ -296,6 +309,7 @@
         if (!parsed.locations)  parsed.locations  = [];
         if (!parsed.timeline)   parsed.timeline   = [];
         if (!parsed.codex)      parsed.codex      = [];
+        if (!parsed.codexFolders) parsed.codexFolders = [...DEFAULT_CODEX_FOLDERS];
         if (!parsed.quests)     parsed.quests     = window.QUESTS    ? window.QUESTS.map(q => ({ ...q }))    : [];
         if (!parsed.religions)  parsed.religions  = window.RELIGIONS ? window.RELIGIONS.map(r => ({ ...r })) : [];
         if (!parsed.relics)     parsed.relics     = window.RELICS    ? window.RELICS.map(r => ({ ...r }))    : [];
@@ -331,15 +345,21 @@
         if ((!parsed.codex || parsed.codex.length === 0) && ((parsed.lore || []).length || (parsed.religions || []).length || (parsed.relics || []).length)) {
           parsed.codex = seedCodexFromWorldData(parsed);
         }
-        parsed.codex      = (parsed.codex || []).map(e => ({ folder: '', attributes: [], linkedIds: [], ...e, body: cleanCodexBody(e.body) }));
+        parsed.codex      = (parsed.codex || []).map(e => ({
+          folder: '', attributes: [], linkedIds: [],
+          image: '', imageSourceUrl: '', imageCredit: '',
+          ...e,
+          body: cleanCodexBody(e.body),
+        }));
         parsed.quests     = (parsed.quests || []).map(q => ({ public: false, ...q }));
-        parsed.npcs       = (parsed.npcs || []).map(n => ({ public: false, image: '', ...n }));
-        parsed.locations  = (parsed.locations || []).map(l => ({ public: false, ...l }));
+        parsed.npcs       = (parsed.npcs || []).map(n => withNpcImageRef({ public: false, image: '', imageSourceUrl: '', imageCredit: '', ...n }));
+        parsed.locations  = (parsed.locations || []).map(l => ({ public: false, image: '', imageSourceUrl: '', imageCredit: '', ...l }));
         parsed.relics     = parsed.relics.map(r => ({
           category: r.category || (String(r.kind || '').toLowerCase() === 'relic' ? 'relic' : 'item'),
           type: r.type || r.kind || 'relic', image: r.image || '', ...r,
         }));
         parsed.codex = parsed.codex.map(e => ({ type: 'lore', pinned: false, ...e }));
+        parsed.codexFolders = Array.from(new Set([...(parsed.codexFolders || []), ...parsed.codex.map(e => e.folder).filter(Boolean)]));
         return parsed;
       }
     } catch (_) {}
@@ -443,7 +463,7 @@
         return { ...s, party: s.party.map(p => p.name === a.name ? { ...p, [a.field]: a.value } : p) };
 
       case 'NPC_ADD': {
-        const n = { id: 'npc-' + Date.now(), name: a.name, title: a.title || '', faction: a.faction || '', disposition: a.disposition || 'neutral', location: a.location || '', quote: a.quote || '', likely: false, public: false, image: a.image || '', tags: a.tags || [], wants: '', fears: '', appearance: '', voice: '', bonds: [], dmNote: '' };
+        const n = { id: 'npc-' + Date.now(), name: a.name, title: a.title || '', faction: a.faction || '', disposition: a.disposition || 'neutral', location: a.location || '', quote: a.quote || '', likely: false, public: false, image: a.image || '', imageSourceUrl: a.imageSourceUrl || '', imageCredit: a.imageCredit || '', tags: a.tags || [], wants: '', fears: '', appearance: '', voice: '', bonds: [], dmNote: '' };
         return { ...s, npcs: [...s.npcs, n] };
       }
       case 'NPC_REMOVE':
@@ -530,7 +550,7 @@
       }
 
       case 'LOCATION_ADD': {
-        const loc = { id: 'loc-' + Date.now(), label: a.label || 'New Location', name: a.label || 'New Location', x: a.x, y: a.y, kind: a.kind || 'town', note: '', party: false, flagged: false, public: false };
+        const loc = { id: 'loc-' + Date.now(), label: a.label || 'New Location', name: a.label || 'New Location', x: a.x, y: a.y, kind: a.kind || 'town', note: '', party: false, flagged: false, public: false, image: a.image || '', imageSourceUrl: a.imageSourceUrl || '', imageCredit: a.imageCredit || '' };
         return { ...s, locations: [...s.locations, loc] };
       }
       case 'LOCATION_REMOVE':
@@ -550,13 +570,40 @@
         return { ...s, timeline: s.timeline.map(e => e.id === a.id ? { ...e, [a.field]: a.value } : e) };
 
       case 'CODEX_ADD': {
-        const entry = { id: 'codex-' + Date.now(), title: a.title || 'Untitled Entry', body: cleanCodexBody(a.body), tags: [], type: a.entryType || 'lore', pinned: false, folder: a.folder || '', attributes: a.attributes || [], linkedIds: a.linkedIds || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        const entry = { id: 'codex-' + Date.now(), title: a.title || 'Untitled Entry', body: cleanCodexBody(a.body), tags: [], type: a.entryType || 'lore', pinned: false, folder: a.folder || '', attributes: a.attributes || [], linkedIds: a.linkedIds || [], image: a.image || '', imageSourceUrl: a.imageSourceUrl || '', imageCredit: a.imageCredit || '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         return { ...s, codex: [entry, ...s.codex] };
       }
       case 'CODEX_REMOVE':
         return { ...s, codex: s.codex.filter(e => e.id !== a.id) };
       case 'CODEX_SET_FIELD':
         return { ...s, codex: s.codex.map(e => e.id === a.id ? { ...e, [a.field]: a.field === 'body' ? cleanCodexBody(a.value) : a.value, updatedAt: new Date().toISOString() } : e) };
+      case 'CODEX_FOLDER_ADD': {
+        const name = String(a.name || '').trim();
+        if (!name) return s;
+        const folders = s.codexFolders || [];
+        if (folders.some(f => f.toLowerCase() === name.toLowerCase())) return s;
+        return { ...s, codexFolders: [...folders, name] };
+      }
+      case 'CODEX_FOLDER_RENAME': {
+        const from = String(a.from || '').trim();
+        const to = String(a.to || '').trim();
+        if (!from || !to) return s;
+        const folders = (s.codexFolders || []).map(f => f === from ? to : f);
+        return {
+          ...s,
+          codexFolders: Array.from(new Set(folders)),
+          codex: s.codex.map(e => e.folder === from ? { ...e, folder: to, updatedAt: new Date().toISOString() } : e),
+        };
+      }
+      case 'CODEX_FOLDER_REMOVE': {
+        const name = String(a.name || '').trim();
+        if (!name) return s;
+        return {
+          ...s,
+          codexFolders: (s.codexFolders || []).filter(f => f !== name),
+          codex: s.codex.map(e => e.folder === name ? { ...e, folder: '', updatedAt: new Date().toISOString() } : e),
+        };
+      }
 
       case 'RELIC_ADD': {
         const relic = { id: 'relic-' + Date.now(), name: a.name || 'Unnamed relic', category: a.category || 'relic', type: a.itemType || a.kind || 'relic', kind: a.itemType || a.kind || 'relic', desc: a.desc || '', image: a.image || '' };
