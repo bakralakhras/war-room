@@ -43,6 +43,7 @@
       const sb = window._sb;
       this._ready = sb.auth.getSession()
         .then(({ data: { session } }) => {
+          if (session) localStorage.removeItem(DEMO_KEY);
           window.Auth.session = session ? mapUser(session.user) : null;
           return window.Auth.session;
         })
@@ -58,7 +59,9 @@
     async login(email, password) {
       const { data, error } = await window._sb.auth.signInWithPassword({ email, password });
       if (error) return { ok: false, error: error.message };
+      localStorage.removeItem(DEMO_KEY);
       window.Auth.session = mapUser(data.user);
+      window.Auth._ready = Promise.resolve(window.Auth.session);
       return { ok: true, user: window.Auth.session };
     },
 
@@ -73,7 +76,9 @@
         // Email confirmation is enabled — account was created, awaiting confirmation.
         return { ok: 'confirm' };
       }
+      localStorage.removeItem(DEMO_KEY);
       window.Auth.session = mapUser(data.user);
+      window.Auth._ready = Promise.resolve(window.Auth.session);
       return { ok: true, user: window.Auth.session };
     },
 

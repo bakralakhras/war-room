@@ -72,7 +72,7 @@ function SiteNav() {
       <div className="nav-spacer"></div>
       <div className="nav-actions">
         <a href="login.html" className="r-btn ghost">Sign in</a>
-        <a href="login.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
+        <a href="demo.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
       </div>
     </nav>
   );
@@ -97,7 +97,7 @@ function Hero() {
         Every name you write is linked to every other name.
       </p>
       <div className="hero-cta">
-        <a href="login.html" className="r-btn gold">
+        <a href="demo.html" className="r-btn gold">
           Open the War Room <span className="arrow">→</span>
         </a>
         <a href="#pillars" className="r-btn ghost">Watch · II minutes</a>
