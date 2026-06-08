@@ -1,0 +1,31 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - img [ref=e5]
+    - generic [ref=e8]: War Room
+    - generic [ref=e9]: For Dungeon Masters only.
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12] [cursor=pointer]: Sign in
+      - generic [ref=e13] [cursor=pointer]: Register
+    - generic [ref=e14]:
+      - text: Signed in as Ardenna Vale.
+      - link "Continue to War Room" [ref=e15] [cursor=pointer]:
+        - /url: demo.html
+      - text: "-"
+      - link "Enter Ardenna demo" [ref=e16] [cursor=pointer]:
+        - /url: "#"
+      - text: "-"
+      - link "Sign out" [ref=e17] [cursor=pointer]:
+        - /url: "#"
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: Email
+        - textbox "Email" [ref=e21]:
+          - /placeholder: you@example.com
+      - generic [ref=e22]:
+        - generic [ref=e23]: Password
+        - textbox "Password" [ref=e24]:
+          - /placeholder: password
+      - button "Enter the War Room" [ref=e25] [cursor=pointer]
+      - button "Enter demo as Ardenna, DM" [ref=e26] [cursor=pointer]
+    - generic [ref=e27]: By entering, you swear to keep what is written here sealed.

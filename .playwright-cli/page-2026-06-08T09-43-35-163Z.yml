@@ -1,0 +1,315 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e12]:
+        - generic [ref=e13]: War Room
+        - generic [ref=e14]: v0.8
+      - button "✕" [ref=e15] [cursor=pointer]
+    - generic [ref=e16] [cursor=pointer]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Campaign
+          - generic [ref=e20]: My Campaign
+        - generic [ref=e21]: ▲
+      - generic [ref=e404]:
+        - generic [ref=e407]: My Campaign
+        - generic [ref=e408]:
+          - img [ref=e409]
+          - text: Manage campaigns
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - button "Play 2" [expanded] [ref=e24] [cursor=pointer]:
+          - generic [ref=e25]: ›
+          - generic [ref=e26]: Play
+          - generic [ref=e27]: "2"
+        - button "War Room tonight" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - generic [ref=e33]: War Room
+          - generic [ref=e34]: tonight
+        - button "Prep 0" [ref=e35] [cursor=pointer]:
+          - img [ref=e36]
+          - generic [ref=e39]: Prep
+          - generic [ref=e40]: "0"
+        - button "Sessions 1" [ref=e41] [cursor=pointer]:
+          - img [ref=e42]
+          - generic [ref=e44]: Sessions
+          - generic [ref=e45]: "1"
+        - button "Encounters 0" [ref=e46] [cursor=pointer]:
+          - img [ref=e47]
+          - generic [ref=e50]: Encounters
+          - generic [ref=e51]: "0"
+      - generic [ref=e52]:
+        - button "World" [expanded] [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]: ›
+          - generic [ref=e55]: World
+        - button "World Codex" [ref=e56] [cursor=pointer]:
+          - img [ref=e57]
+          - generic [ref=e59]: World Codex
+        - button "Characters 0" [ref=e60] [cursor=pointer]:
+          - img [ref=e61]
+          - generic [ref=e64]: Characters
+          - generic [ref=e65]: "0"
+        - button "Locations 0" [ref=e66] [cursor=pointer]:
+          - img [ref=e67]
+          - generic [ref=e70]: Locations
+          - generic [ref=e71]: "0"
+        - button "Factions 0" [ref=e72] [cursor=pointer]:
+          - img [ref=e73]
+          - generic [ref=e75]: Factions
+          - generic [ref=e76]: "0"
+        - button "Quests 0" [ref=e77] [cursor=pointer]:
+          - img [ref=e78]
+          - generic [ref=e80]: Quests
+          - generic [ref=e81]: "0"
+        - button "Timeline" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e87]: Timeline
+        - button "Calendar 0" [ref=e88] [cursor=pointer]:
+          - img [ref=e89]
+          - generic [ref=e91]: Calendar
+          - generic [ref=e92]: "0"
+        - button "Maps" [ref=e93] [cursor=pointer]:
+          - img [ref=e94]
+          - generic [ref=e96]: Maps
+      - generic [ref=e97]:
+        - button "DM Tools" [expanded] [ref=e98] [cursor=pointer]:
+          - generic [ref=e99]: ›
+          - generic [ref=e100]: DM Tools
+        - button "Secrets 0" [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+          - generic [ref=e106]: Secrets
+          - generic [ref=e107]: "0"
+        - button "Rumors 0" [ref=e108] [cursor=pointer]:
+          - img [ref=e109]
+          - generic [ref=e112]: Rumors
+          - generic [ref=e113]: "0"
+        - button "Relationships" [ref=e114] [cursor=pointer]:
+          - img [ref=e115]
+          - generic [ref=e125]: Relationships
+        - button "Items & Relics 0" [ref=e126] [cursor=pointer]:
+          - img [ref=e127]
+          - generic [ref=e130]: Items & Relics
+          - generic [ref=e131]: "0"
+        - button "Handouts 0" [ref=e132] [cursor=pointer]:
+          - img [ref=e133]
+          - generic [ref=e135]: Handouts
+          - generic [ref=e136]: "0"
+        - button "Random Tables 0" [ref=e137] [cursor=pointer]:
+          - img [ref=e138]
+          - generic [ref=e140]: Random Tables
+          - generic [ref=e141]: "0"
+        - button "Inspiration" [ref=e142] [cursor=pointer]:
+          - img [ref=e143]
+          - generic [ref=e145]: Inspiration
+      - generic [ref=e146]:
+        - button "Output" [expanded] [ref=e147] [cursor=pointer]:
+          - generic [ref=e148]: ›
+          - generic [ref=e149]: Output
+        - button "Player View" [ref=e150] [cursor=pointer]:
+          - img [ref=e151]
+          - generic [ref=e153]: Player View
+        - button "Exports" [ref=e154] [cursor=pointer]:
+          - img [ref=e155]
+          - generic [ref=e158]: Exports
+        - button "Settings" [ref=e159] [cursor=pointer]:
+          - img [ref=e160]
+          - generic [ref=e166]: Settings
+    - generic [ref=e167]:
+      - generic [ref=e168]: A
+      - generic [ref=e169]:
+        - generic [ref=e170]: Ardenna Vale
+        - generic [ref=e171]: ardenna.dm@war-room.demo
+      - button "⎋" [ref=e172] [cursor=pointer]
+  - main [ref=e173]:
+    - generic [ref=e174]:
+      - button "«" [ref=e175] [cursor=pointer]
+      - generic [ref=e176]:
+        - img [ref=e177]
+        - generic [ref=e181]: Vaelthorne
+        - generic [ref=e182]: ·
+        - generic [ref=e183]: Play
+        - generic [ref=e184]: ·
+        - generic [ref=e185]: War Room
+      - generic [ref=e187] [cursor=pointer]:
+        - img [ref=e188]
+        - generic [ref=e191]: Search the codex…
+        - generic [ref=e192]: ⌘ K
+      - button "Roll" [ref=e193] [cursor=pointer]:
+        - img [ref=e194]
+        - text: Roll
+      - button "Begin session" [ref=e197] [cursor=pointer]:
+        - img [ref=e198]
+        - text: Begin session
+    - generic [ref=e200]:
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - generic [ref=e203]: Session 1 · No next session scheduled
+          - heading "❦The War Room" [level=1] [ref=e205]
+          - generic [ref=e206]: My Campaign
+        - generic [ref=e207]:
+          - button "Prep notes" [ref=e208] [cursor=pointer]:
+            - img [ref=e209]
+            - text: Prep notes
+          - button "Begin session" [ref=e212] [cursor=pointer]:
+            - img [ref=e213]
+            - text: Begin session
+      - generic [ref=e215]:
+        - generic [ref=e216]:
+          - generic [ref=e217]: Campaign
+          - generic [ref=e218]: Session I / 20
+          - generic [ref=e219]: 0 prep open
+        - generic [ref=e220]:
+          - generic [ref=e221]: Party at
+          - generic [ref=e222]: Unknown
+          - generic [ref=e223]: No region set
+      - generic [ref=e224]:
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - generic [ref=e227]:
+              - img [ref=e228]:
+                - generic [ref=e232]: I
+              - generic [ref=e233]:
+                - generic [ref=e234]: Session Brief · Live campaign data
+                - generic [ref=e235]: Session I - Prep needed
+              - generic [ref=e236]: empty
+            - generic [ref=e238]:
+              - generic [ref=e239]:
+                - generic [ref=e240]: Opening pressure
+                - generic [ref=e241]:
+                  - generic [ref=e242]: No session prep yet.
+                  - text: Add scenes, beats, clues, or complications and they will land here.
+              - generic [ref=e243]:
+                - generic [ref=e244]: Beats to land
+                - generic [ref=e245]: No open prep beats.
+            - generic [ref=e246]:
+              - img [ref=e247]
+              - generic [ref=e250]: 0 open prep · 0 done
+              - button "Open in session mode" [ref=e251] [cursor=pointer]:
+                - text: Open in session mode
+                - img [ref=e252]
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - img [ref=e256]
+              - generic [ref=e259]: ❦Tonight's Dossier
+              - generic [ref=e260]: run-ready prompts
+            - generic [ref=e262]:
+              - generic [ref=e263]:
+                - generic [ref=e264]: Reveal if they push
+                - generic [ref=e265]: No unrevealed secrets are loaded for tonight.
+                - button "Open the vault" [ref=e266] [cursor=pointer]:
+                  - text: Open the vault
+                  - img [ref=e267]
+              - generic [ref=e269]:
+                - generic [ref=e270]: Seed at the table
+                - generic [ref=e271]: No rumor is waiting to drop.
+              - generic [ref=e272]:
+                - generic [ref=e273]: Move if they stall
+                - generic [ref=e274]: No faction pressure is armed yet.
+              - generic [ref=e275]:
+                - generic [ref=e276]: Keep in your mouth
+                - generic [ref=e277]: No likely NPC is marked.
+                - button "Cast list" [ref=e278] [cursor=pointer]:
+                  - text: Cast list
+                  - img [ref=e279]
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - img [ref=e283]
+              - generic [ref=e285]: The War Table
+              - generic [ref=e286]: 0 faction clocks
+            - generic [ref=e288]:
+              - generic [ref=e289]: No faction clocks yet.
+              - text: Add factions and clocks to see the war table move.
+          - generic [ref=e290]:
+            - generic [ref=e291]:
+              - img [ref=e292]
+              - generic [ref=e295]: ❦Likely to appear
+              - generic [ref=e296]: 0 total
+            - generic [ref=e298]:
+              - generic [ref=e299]: No characters yet.
+              - text: Create NPCs, then mark likely faces for next session.
+        - generic [ref=e300]:
+          - generic [ref=e301]:
+            - generic [ref=e302]:
+              - img [ref=e303]
+              - generic [ref=e306]: ❦Rumors on the wind
+              - generic [ref=e307]: 0 undelivered
+            - generic [ref=e308]:
+              - generic [ref=e309]:
+                - generic [ref=e310]: No rumors waiting.
+                - text: Add rumors to seed taverns, roads, courts, and player view.
+              - button "All rumors" [ref=e311] [cursor=pointer]:
+                - text: All rumors
+                - img [ref=e312]
+          - generic [ref=e314]:
+            - generic [ref=e315]:
+              - img [ref=e316]
+              - generic [ref=e318]: Last Session
+              - generic [ref=e319]: None
+            - generic [ref=e321]:
+              - generic [ref=e322]: No sessions yet.
+              - text: Start a session ledger and the recap will live here.
+          - generic [ref=e323]:
+            - generic [ref=e324]:
+              - img [ref=e325]
+              - generic [ref=e329]: ❦Sealed Secrets
+              - generic [ref=e330]: 0 unrevealed
+            - generic [ref=e331]:
+              - generic [ref=e332]:
+                - generic [ref=e333]: No sealed secrets.
+                - text: Add secrets and cracked reveals to make the vault useful.
+              - button "Open the Vault" [ref=e335] [cursor=pointer]:
+                - text: Open the Vault
+                - img [ref=e336]
+          - generic [ref=e338]:
+            - generic [ref=e339]:
+              - img [ref=e340]
+              - generic [ref=e342]: Active Arcs
+              - generic [ref=e343]: 0 active
+            - generic [ref=e345]:
+              - generic [ref=e346]: No active arcs.
+              - text: Active quests will appear here with their next step.
+          - generic [ref=e347]:
+            - generic [ref=e348]:
+              - img [ref=e349]
+              - generic [ref=e350]: Quick Hand
+              - generic [ref=e351]: DM tools
+            - generic [ref=e353]:
+              - button "New NPC N" [ref=e354] [cursor=pointer]:
+                - img [ref=e355]
+                - generic [ref=e358]: New NPC
+                - generic [ref=e359]: "N"
+              - button "New location L" [ref=e360] [cursor=pointer]:
+                - img [ref=e361]
+                - generic [ref=e364]: New location
+                - generic [ref=e365]: L
+              - button "New secret S" [ref=e366] [cursor=pointer]:
+                - img [ref=e367]
+                - generic [ref=e371]: New secret
+                - generic [ref=e372]: S
+              - button "Open map M" [ref=e373] [cursor=pointer]:
+                - img [ref=e374]
+                - generic [ref=e376]: Open map
+                - generic [ref=e377]: M
+              - button "World codex W" [ref=e378] [cursor=pointer]:
+                - img [ref=e379]
+                - generic [ref=e381]: World codex
+                - generic [ref=e382]: W
+              - button "Start session Enter" [ref=e383] [cursor=pointer]:
+                - img [ref=e384]
+                - generic [ref=e386]: Start session
+                - generic [ref=e387]: Enter
+      - generic [ref=e388]:
+        - generic [ref=e389]:
+          - generic [ref=e390]: DM annotation
+          - generic [ref=e391]: 0 unrevealed secrets, 0 active arcs, 0 undelivered rumors.
+          - generic [ref=e392]: No faction clock is currently setting the tempo.
+          - generic [ref=e393]: "Party position: Unknown."
+        - generic [ref=e394]:
+          - generic [ref=e395]:
+            - img [ref=e396]
+            - generic [ref=e399]: ❦The Party
+            - generic [ref=e400]: 0 members
+          - generic [ref=e402]:
+            - generic [ref=e403]: No party members.
+            - text: Add the party roster so the dashboard can track who is at the table.

@@ -1,0 +1,226 @@
+- main [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img [ref=e7]
+      - generic [ref=e9]: The Black Bell of Vaelthorne
+      - generic [ref=e10]: /
+      - generic [ref=e11]: Player Desk
+    - generic [ref=e12]: cached
+    - button "◐ Mood" [ref=e13] [cursor=pointer]
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: "?"
+      - generic [ref=e17]:
+        - generic [ref=e18]: Published campaign
+        - heading "The Black Bell of Vaelthorne" [level=1] [ref=e19]
+        - paragraph [ref=e20]: Two heirs, one drowned bell, and a crown that remembers murder.
+        - generic [ref=e21]:
+          - generic [ref=e22]: Session 1
+          - generic [ref=e23]: Ashen Hollow
+          - generic [ref=e24]: Shared player view
+      - generic [ref=e25]:
+        - generic [ref=e26]: Playing
+        - heading "Unassigned character" [level=2] [ref=e27]
+        - generic [ref=e28]: Ask the DM for a seat link.
+        - textbox "What is your character afraid to say out loud?" [ref=e29]
+    - tablist "Player pages" [ref=e30]:
+      - button "Overview at table" [ref=e31] [cursor=pointer]:
+        - generic [ref=e32]: Overview
+        - generic [ref=e33]: at table
+      - button "Character your sheet" [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: Character
+        - generic [ref=e36]: your sheet
+      - button "Journal 1e · 0p" [ref=e37] [cursor=pointer]:
+        - generic [ref=e38]: Journal
+        - generic [ref=e39]: 1e · 0p
+      - button "Intel 15 records" [active] [ref=e40] [cursor=pointer]:
+        - generic [ref=e41]: Intel
+        - generic [ref=e42]: 15 records
+      - button "Party 2 members" [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: Party
+        - generic [ref=e45]: 2 members
+      - button "Inspiration 2 pins" [ref=e46] [cursor=pointer]:
+        - generic [ref=e47]: Inspiration
+        - generic [ref=e48]: 2 pins
+    - generic [ref=e198]:
+      - generic [ref=e199]:
+        - generic [ref=e200]:
+          - img [ref=e201]
+          - generic [ref=e203]: Active Threads
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - generic [ref=e206]:
+              - strong [ref=e207]: The Half-Burned Ledger
+              - generic [ref=e208]: Main
+            - paragraph [ref=e209]:
+              - emphasis [ref=e210]: "Stakes:"
+              - text: Names every buyer in the regicide. Changes the war.
+            - paragraph [ref=e211]: ↳ Read page 6 aloud at the cloister.
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - strong [ref=e214]: A Witness Below the Lantern
+              - generic [ref=e215]: Main
+            - paragraph [ref=e216]:
+              - emphasis [ref=e217]: "Stakes:"
+              - text: The Hollow Child is the last living witness. If she dies, the truth dies.
+            - paragraph [ref=e218]: ↳ Earn Halsane's audience.
+          - generic [ref=e219]:
+            - generic [ref=e220]:
+              - strong [ref=e221]: The White Stag
+              - generic [ref=e222]: Side
+            - paragraph [ref=e223]:
+              - emphasis [ref=e224]: "Stakes:"
+              - text: An omen the Margreave has not shown in twenty years.
+            - paragraph [ref=e225]: ↳ Follow the silver trail west.
+      - generic [ref=e226]:
+        - generic [ref=e227]:
+          - img [ref=e228]
+          - generic [ref=e231]: Known Faces
+        - generic [ref=e232]:
+          - button "A Abbess Halsane Mire Mother of the Drowned Lantern ally ›" [ref=e233] [cursor=pointer]:
+            - generic [ref=e234]: A
+            - generic [ref=e235]:
+              - strong [ref=e236]: Abbess Halsane Mire
+              - paragraph [ref=e237]: Mother of the Drowned Lantern
+              - generic [ref=e238]: ally
+            - generic [ref=e239]: ›
+          - button "H High Marshal Caedren Vask Bearer of the Iron Writ hostile ›" [ref=e240] [cursor=pointer]:
+            - generic [ref=e241]: H
+            - generic [ref=e242]:
+              - strong [ref=e243]: High Marshal Caedren Vask
+              - paragraph [ref=e244]: Bearer of the Iron Writ
+              - generic [ref=e245]: hostile
+            - generic [ref=e246]: ›
+          - button "R Regent Theron Vael Regent of the Ashen Court ambiguous ›" [ref=e247] [cursor=pointer]:
+            - generic [ref=e248]: R
+            - generic [ref=e249]:
+              - strong [ref=e250]: Regent Theron Vael
+              - paragraph [ref=e251]: Regent of the Ashen Court
+              - generic [ref=e252]: ambiguous
+            - generic [ref=e253]: ›
+      - generic [ref=e254]:
+        - generic [ref=e255]:
+          - img [ref=e256]
+          - generic [ref=e259]: Known Places
+        - generic [ref=e261]:
+          - article [ref=e262]:
+            - img [ref=e264]
+            - generic [ref=e267]:
+              - generic [ref=e268]: capital
+              - heading "Cinderhold" [level=3] [ref=e269]
+              - paragraph [ref=e270]: The empty throne. Regent in residence.
+          - article [ref=e271]:
+            - img [ref=e273]
+            - generic [ref=e276]:
+              - generic [ref=e277]: fortress
+              - heading "Greymarch Citadel" [level=3] [ref=e278]
+              - paragraph [ref=e279]: Iron Concord stronghold.
+          - article [ref=e280]:
+            - generic [ref=e281]:
+              - img [ref=e282]
+              - generic [ref=e285]: party here
+            - generic [ref=e286]:
+              - generic [ref=e287]: town
+              - heading "Ashen Hollow" [level=3] [ref=e288]
+              - paragraph [ref=e289]: Party here. Flooded mines.
+          - article [ref=e290]:
+            - img [ref=e292]
+            - generic [ref=e295]:
+              - generic [ref=e296]: abbey
+              - heading "Drowned Lantern" [level=3] [ref=e297]
+              - paragraph [ref=e298]: Pale Moon cloister. The witness sleeps below.
+          - article [ref=e299]:
+            - img [ref=e301]
+            - generic [ref=e304]:
+              - generic [ref=e305]: ruin
+              - heading "Garden of Asters" [level=3] [ref=e306]
+              - paragraph [ref=e307]: Where the king died.
+      - generic [ref=e308]:
+        - generic [ref=e309]:
+          - img [ref=e310]
+          - generic [ref=e314]: Revealed Truths
+        - generic [ref=e316]:
+          - strong [ref=e318]: Caedren carried the body from the field.
+          - generic [ref=e319]: revealed
+      - generic [ref=e320]:
+        - generic [ref=e321]:
+          - generic [ref=e322]: Factions
+          - generic [ref=e323]: power & disposition
+        - generic [ref=e324]:
+          - generic [ref=e325]:
+            - generic [ref=e326]:
+              - strong [ref=e327]: The Iron Concord
+              - generic [ref=e328]: hostile
+            - paragraph [ref=e329]: Order through steel. The crown is a contract.
+            - generic [ref=e333]: 5/8 — March on Greymarch
+          - generic [ref=e334]:
+            - generic [ref=e335]:
+              - strong [ref=e336]: The Veiled Hand
+              - generic [ref=e337]: ambiguous
+            - paragraph [ref=e338]: What is hidden is sovereign.
+            - generic [ref=e342]: 4/6 — Recover the Ledger
+          - generic [ref=e343]:
+            - generic [ref=e344]:
+              - strong [ref=e345]: Order of the Pale Moon
+              - generic [ref=e346]: ally
+            - paragraph [ref=e347]: Mercy is a discipline. Forgiveness is a vow.
+            - generic [ref=e351]: 2/6 — Sanctuary for the Heir
+          - generic [ref=e352]:
+            - generic [ref=e353]:
+              - strong [ref=e354]: The Ashen Court
+              - generic [ref=e355]: neutral
+            - paragraph [ref=e356]: The throne is a flame. Tend it or be consumed.
+            - generic [ref=e360]: 1/4 — Coronation of a Pretender
+          - generic [ref=e361]:
+            - generic [ref=e362]:
+              - strong [ref=e363]: The Saltbrothers
+              - generic [ref=e364]: neutral
+            - paragraph [ref=e365]: Salt forgives. Salt remembers.
+            - generic [ref=e369]: 3/6 — Blockade of the Margreave
+      - generic [ref=e370]:
+        - generic [ref=e371]:
+          - img [ref=e372]
+          - generic [ref=e374]: Handouts & Visions
+        - generic [ref=e376]:
+          - article [ref=e377]:
+            - img [ref=e379]
+            - generic [ref=e381]:
+              - generic [ref=e382]: document
+              - heading "The Iron Writ — Public Proclamation" [level=3] [ref=e383]
+              - paragraph [ref=e384]: "BY ORDER OF THE IRON CONCORD, ACTING IN THE INTEREST OF THE REALM: In the absence of a crowned sovereign, the Concord assumes interim authority over the Margreave road, the Salt Blockade, and all garrison posts between Cinderhold and Greymarch Citadel. Any party found obstructing Concord patrols shall be held at the nearest garrison without trial for a period not to exceed thirty days. This writ expires at the first crowning, or at the end of the month of Vael — whichever comes first. Signed: High Marshal Caedren Vask Sealed: The Iron Concord, Third Seal"
+          - article [ref=e385]:
+            - img [ref=e387]
+            - generic [ref=e389]:
+              - generic [ref=e390]: vision
+              - heading "Marda's Signet Dream" [level=3] [ref=e391]
+              - paragraph [ref=e392]: You dream of your brother under black water. He opens his hand. The signet is not a ring anymore. It is a tiny bell, ringing without sound.
+          - article [ref=e393]:
+            - img [ref=e395]
+            - generic [ref=e397]:
+              - generic [ref=e398]: vision
+              - heading "Aelric's Patron Whisper" [level=3] [ref=e399]
+              - paragraph [ref=e400]: "The Hollow Sovereign says: bring me beneath the roses, and I will tell you which king is still breathing."
+      - generic [ref=e401]:
+        - generic [ref=e402]:
+          - generic [ref=e403]: Session History
+          - generic [ref=e404]: recent past
+        - generic [ref=e406]:
+          - strong [ref=e407]: Session XIII · The Drowned Lantern
+          - paragraph [ref=e408]: • Party recovered the half-burned ledger from Ferren's study.
+          - paragraph [ref=e409]: • Lady Halsane recognised Marda's signet — refused to speak further.
+          - paragraph [ref=e410]: • Sable lifted a wax-sealed letter bearing the Crown of Asters.
+      - generic [ref=e411]:
+        - generic [ref=e412]:
+          - img [ref=e413]
+          - generic [ref=e416]: The Party
+        - generic [ref=e417]:
+          - generic [ref=e418]:
+            - generic [ref=e419]:
+              - strong [ref=e420]: Marda Stonebrew
+              - paragraph [ref=e421]: Her brother died with the rose signet in his mouth.
+            - generic [ref=e422]: Dwarven Cleric
+          - generic [ref=e423]:
+            - generic [ref=e424]:
+              - strong [ref=e425]: Aelric Vorn
+              - paragraph [ref=e426]: His patron is a voice from the drowned throne.
+            - generic [ref=e427]: Half-elf Warlock

@@ -51,6 +51,33 @@ function WarRoom({ state, onNav, onOpenNPC, onOpenFaction, onOpenSecret }) {
     partyPlace,
   });
 
+  React.useEffect(() => {
+    const shortcuts = {
+      n: () => onNav('characters'),
+      l: () => onNav('maps'),
+      s: () => onNav('secrets'),
+      m: () => onNav('maps'),
+      w: () => onNav('codex'),
+      enter: () => onNav('sessions'),
+    };
+
+    const onKeyDown = (e) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target;
+      const tag = target?.tagName?.toLowerCase();
+      if (target?.isContentEditable || ['input', 'textarea', 'select'].includes(tag)) return;
+
+      const key = e.key === 'Enter' ? 'enter' : e.key.toLowerCase();
+      const action = shortcuts[key];
+      if (!action) return;
+      e.preventDefault();
+      action();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onNav]);
+
   return (
     <div className="page fade-up">
       <div className="page-header">
