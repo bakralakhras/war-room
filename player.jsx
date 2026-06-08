@@ -108,6 +108,8 @@ function defaultDesk(player) {
     inventory: [],
     abilities: [],
     theories: { nodes: [], edges: [] },
+    portrait: '',
+    customChars: [],
   };
 }
 
@@ -125,6 +127,8 @@ function migrateDesk(saved, player) {
   if (!desk.inventory) desk.inventory = base.inventory;
   if (!desk.abilities) desk.abilities = base.abilities;
   if (!desk.theories) desk.theories = base.theories;
+  if (!desk.portrait) desk.portrait = base.portrait;
+  if (!desk.customChars) desk.customChars = base.customChars;
   return desk;
 }
 
@@ -185,8 +189,8 @@ function usePlayerDesk(campaignId, player) {
   const addAbility = (name, desc) => { if (!name.trim()) return; setDesk(d => ({ ...d, abilities: [...(d.abilities || []), { id: 'ab-' + Date.now(), name: name.trim(), desc: desc.trim() }] })); };
   const removeAbility = (id) => setDesk(d => ({ ...d, abilities: (d.abilities || []).filter(a => a.id !== id) }));
 
-  const addTheoryNode = (label, type, npcId, note) => {
-    const node = { id: 'tn-' + Date.now(), label: label.trim(), type: type || 'unknown', npcId: npcId || null, note: (note || '').trim(), x: 0.25 + Math.random() * 0.5, y: 0.25 + Math.random() * 0.5, suspicion: 'medium' };
+  const addTheoryNode = (label, type, sourceId, note, image) => {
+    const node = { id: 'tn-' + Date.now(), label: label.trim(), type: type || 'unknown', sourceId: sourceId || null, note: (note || '').trim(), image: (image || '').trim(), x: 0.25 + Math.random() * 0.5, y: 0.25 + Math.random() * 0.5, suspicion: 'medium' };
     setDesk(d => ({ ...d, theories: { ...d.theories, nodes: [...(d.theories?.nodes || []), node] } }));
     return node.id;
   };
@@ -197,8 +201,15 @@ function usePlayerDesk(campaignId, player) {
     setDesk(d => ({ ...d, theories: { ...d.theories, edges: [...(d.theories?.edges || []), edge] } }));
   };
   const removeTheoryEdge = (id) => setDesk(d => ({ ...d, theories: { ...d.theories, edges: (d.theories?.edges || []).filter(e => e.id !== id) } }));
+  const addCustomChar = (name, role, image, note) => {
+    const c = { id: 'cc-' + Date.now(), name: name.trim(), role: (role||'').trim(), image: (image||'').trim(), note: (note||'').trim() };
+    setDesk(d => ({ ...d, customChars: [...(d.customChars||[]), c] }));
+    return c.id;
+  };
+  const updateCustomChar = (id, p) => setDesk(d => ({ ...d, customChars: (d.customChars||[]).map(c => c.id === id ? { ...c, ...p } : c) }));
+  const removeCustomChar = (id) => setDesk(d => ({ ...d, customChars: (d.customChars||[]).filter(c => c.id !== id) }));
 
-  return { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge };
+  return { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge, addCustomChar, updateCustomChar, removeCustomChar };
 }
 
 function usePartyChronicle(campaignId, player) {
@@ -275,7 +286,7 @@ function PlayerApp() {
   const { state, status, campaignId, playerId } = usePlayerSync();
   const campaign = state?.campaign || {};
   const player = (campaign.playerRoster || []).find(p => p.id === playerId);
-  const { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge } = usePlayerDesk(campaignId, player);
+  const { desk, patch, addGoal, toggleGoal, removeGoal, addJournalEntry, updateJournalEntry, removeJournalEntry, addSpark, removeSpark, patchHp, patchTrait, addInventory, updateInventory, removeInventory, addAbility, removeAbility, addTheoryNode, updateTheoryNode, removeTheoryNode, addTheoryEdge, removeTheoryEdge, addCustomChar, updateCustomChar, removeCustomChar } = usePlayerDesk(campaignId, player);
   const { entries: chronicle, postEntry } = usePartyChronicle(campaignId, player);
   const { theme, pick: pickTheme, reset: resetTheme } = useThemePicker(campaignId, playerId, campaign.theme);
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -331,7 +342,7 @@ function PlayerApp() {
               <PlayerInspirationPage desk={desk} patch={patch} addSpark={addSpark} removeSpark={removeSpark} />
             )}
             {activeTab === 'theories' && (
-              <PlayerTheories theories={desk.theories || { nodes: [], edges: [] }} publicNpcs={publicNpcs} onAddNode={addTheoryNode} onUpdateNode={updateTheoryNode} onRemoveNode={removeTheoryNode} onAddEdge={addTheoryEdge} onRemoveEdge={removeTheoryEdge} />
+              <PlayerTheories theories={desk.theories || { nodes: [], edges: [] }} publicNpcs={publicNpcs} publicParty={state?.party || []} customChars={desk.customChars || []} player={player} onAddNode={addTheoryNode} onUpdateNode={updateTheoryNode} onRemoveNode={removeTheoryNode} onAddEdge={addTheoryEdge} onRemoveEdge={removeTheoryEdge} />
             )}
           </div>
         )}
@@ -378,10 +389,23 @@ function PlayerTopbar({ campaign, status, onThemeOpen }) {
 }
 
 function PlayerHero({ campaign, player, character, currentPlace, desk, patch }) {
+  const [editPortrait, setEditPortrait] = React.useState(false);
+  const [portraitDraft, setPortraitDraft] = React.useState('');
   const initials = (player?.character || '?').split(/\s+/).map(s => s[0]).join('').slice(0, 2);
+  const portrait = desk.portrait || '';
+
+  const openPortrait = () => { setPortraitDraft(portrait); setEditPortrait(true); };
+  const savePortrait = e => { e.preventDefault(); patch('portrait', portraitDraft.trim()); setEditPortrait(false); };
+
   return (
     <div className="player-hero">
-      <div className="player-sigil">{initials}</div>
+      <div className="player-sigil-wrap" onClick={openPortrait} title="Click to change portrait">
+        {portrait
+          ? <img src={portrait} alt="" className="player-sigil-img" />
+          : <div className="player-sigil">{initials}</div>
+        }
+        <div className="player-sigil-edit-hint">edit</div>
+      </div>
       <div className="player-hero-main">
         <div className="smallcaps">Published campaign</div>
         <h1>{campaign.name || 'Player View'}</h1>
@@ -403,6 +427,22 @@ function PlayerHero({ campaign, player, character, currentPlace, desk, patch }) 
           placeholder="What is your character afraid to say out loud?"
         />
       </div>
+      {editPortrait && (
+        <div className="theory-node-editor-backdrop" onClick={() => setEditPortrait(false)}>
+          <form className="theory-node-editor" onClick={e => e.stopPropagation()} onSubmit={savePortrait}>
+            <div className="theory-node-editor-head"><span>Character portrait</span><button type="button" onClick={() => setEditPortrait(false)}>×</button></div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>Paste an image URL. This portrait appears on your hero card and in the theory board.</div>
+              <input value={portraitDraft} onChange={e => setPortraitDraft(e.target.value)} placeholder="https://…" autoFocus style={{ width: '100%', boxSizing: 'border-box', background: 'oklch(0.14 0.01 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 12.5, outline: 'none' }} />
+              {portraitDraft && <img src={portraitDraft} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--hairline-2)', alignSelf: 'center' }} />}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button type="button" className="tbtn" onClick={() => { patch('portrait', ''); setEditPortrait(false); }}>Remove portrait</button>
+                <button type="submit" className="tbtn brass">Save</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -996,215 +1036,566 @@ function PlayerInspirationBoard({ sparks, onAdd, onRemove }) {
 }
 
 // ─── THEORY BOARD ────────────────────────────────────────────────────────────
+// Same portrait-card conspiracy board as the DM's relationships screen,
+// but private per-player (local storage only, DM never sees it).
 
-const THEORY_W = 1200, THEORY_H = 800, NODE_R = 30;
-const THEORY_TYPE_COLOR = { npc: 'var(--brass)', unknown: 'oklch(0.6 0.06 270)', faction: 'var(--amber)', event: 'var(--crimson)' };
-const THEORY_EDGE_COLOR = { suspects: 'var(--amber)', trusts: 'var(--forest)', enemy: 'var(--crimson)', knows: 'var(--fg-3)', connected: 'var(--brass)', unknown: 'oklch(0.5 0.03 270)' };
-const THEORY_EDGE_TYPES = ['suspects', 'trusts', 'enemy', 'knows', 'connected', 'unknown'];
+const TB_W = 1400, TB_H = 950;
+const TB_THREAD_TYPES = ['suspects','trusts','allies','enemies','owes','family','knows','unknown'];
 
-function TheoryBoard({ theories, publicNpcs, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
-  const svgRef = React.useRef(null);
-  const [vp, setVp] = React.useState({ x: 40, y: 40, scale: 1 });
-  const vpRef = React.useRef({ x: 40, y: 40, scale: 1 });
+function tbThreadStyle(type) {
+  if (type === 'suspects') return { stroke: 'oklch(0.66 0.15 50)',  dash: '5 3', w: 1.4 };
+  if (type === 'trusts')   return { stroke: 'oklch(0.6 0.10 150)',  dash: '0',   w: 1.2 };
+  if (type === 'allies')   return { stroke: 'oklch(0.55 0.10 150)', dash: '0',   w: 1.2 };
+  if (type === 'enemies')  return { stroke: 'oklch(0.55 0.18 26)',  dash: '0',   w: 1.6 };
+  if (type === 'owes')     return { stroke: 'oklch(0.66 0.15 50)',  dash: '4 3', w: 1.4 };
+  if (type === 'family')   return { stroke: 'oklch(0.74 0.06 80)',  dash: '0',   w: 1.2 };
+  if (type === 'loves')    return { stroke: 'oklch(0.7 0.16 26)',   dash: '0',   w: 1.4 };
+  return { stroke: 'oklch(0.55 0.014 80)', dash: '2 4', w: 1 };
+}
+
+function tbNodeColors(type) {
+  const m = {
+    npc:     ['oklch(0.42 0.07 80)',  'oklch(0.22 0.05 60)'],
+    party:   ['oklch(0.5 0.10 50)',   'oklch(0.28 0.08 50)'],
+    self:    ['oklch(0.56 0.14 50)',  'oklch(0.35 0.10 50)'],
+    custom:  ['oklch(0.42 0.13 26)',  'oklch(0.22 0.10 26)'],
+    faction: ['oklch(0.42 0.07 235)', 'oklch(0.20 0.05 235)'],
+    event:   ['oklch(0.38 0.012 60)', 'oklch(0.18 0.012 60)'],
+    unknown: ['oklch(0.32 0.012 60)', 'oklch(0.16 0.012 60)'],
+  };
+  return m[type] || m.unknown;
+}
+
+function tbWrapLabel(label, max) {
+  const words = String(label || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = []; let line = '';
+  words.forEach(w => {
+    if (w.length > max) { if (line) { lines.push(line); line = ''; } for (let i = 0; i < w.length; i += max) lines.push(w.slice(i, i + max)); return; }
+    const next = line ? line + ' ' + w : w;
+    if (next.length <= max) { line = next; } else { lines.push(line); line = w; }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function TBPortrait({ label, type, image, onLinkStart }) {
+  const [a, b] = tbNodeColors(type);
+  const safe = (label || '').replace(/\W/g, '').slice(0, 8);
+  const gradId = 'tbg-' + type + '-' + safe;
+  const CW = 60, half = 30;
+  const lines = tbWrapLabel(label, 11);
+  const lh = 7.5;
+  const npH = Math.max(12, lines.length * lh + 4);
+  const cardH = 12 + npH + 20;
+  return (
+    <g>
+      <circle cx="0" cy="-30" r="3.5" fill="var(--brass)" stroke="oklch(0.16 0.04 30)" strokeWidth="0.5" />
+      <circle cx="0" cy="-30" r="11" fill="transparent" stroke="transparent" onMouseDown={onLinkStart} style={{ cursor: 'crosshair' }} />
+      <line x1="0" y1="-27" x2="0" y2="-20" stroke="oklch(0.32 0.014 60)" strokeWidth="0.9" />
+      <rect x={-half} y="-20" width={CW} height={cardH} rx="2.5" fill="oklch(0.92 0.04 80)" stroke="oklch(0.4 0.07 60)" strokeWidth="0.7" />
+      {image ? (
+        <>
+          <clipPath id={gradId + '-clip'}><rect x={-half + 2} y="-18" width={CW - 4} height="28" /></clipPath>
+          <image href={image} x={-half + 2} y="-18" width={CW - 4} height="28" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + gradId + '-clip)'} />
+        </>
+      ) : (
+        <rect x={-half + 2} y="-18" width={CW - 4} height="28" fill={'url(#' + gradId + ')'} />
+      )}
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={a} />
+          <stop offset="100%" stopColor={b} />
+        </linearGradient>
+      </defs>
+      {!image && (
+        <>
+          <circle cx="0" cy="-5" r="6" fill="oklch(0.16 0.04 30)" opacity="0.6" />
+          <path d="M -13 12 Q 0 0 13 12" fill="oklch(0.16 0.04 30)" opacity="0.6" />
+        </>
+      )}
+      <rect x={-half} y="12" width={CW} height={npH} fill="oklch(0.85 0.04 80)" stroke="oklch(0.4 0.07 60)" strokeWidth="0.5" />
+      <text textAnchor="middle" fontFamily="Cormorant Garamond, serif" fontSize="9" fill="oklch(0.22 0.06 40)" letterSpacing="0.3">
+        {lines.map((l, i) => <tspan key={i} x="0" y={12 + 8 + i * lh}>{l}</tspan>)}
+      </text>
+    </g>
+  );
+}
+
+function TBNodeAvatar({ type, image }) {
+  const [a] = tbNodeColors(type);
+  return (
+    <div style={{ width: 26, height: 26, borderRadius: 3, background: a, border: '1px solid var(--brass-dim)', display: 'grid', placeItems: 'center', flexShrink: 0, overflow: 'hidden' }}>
+      {image
+        ? <img src={image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'oklch(0 0 0 / 0.4)' }} />
+      }
+    </div>
+  );
+}
+
+function TheoryBoard({ theories, publicNpcs, publicParty, customChars, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
+  const nodes = theories?.nodes || [], edges = theories?.edges || [];
+  const W = TB_W, H = TB_H;
+
+  const [vp, setVp] = React.useState({ x: 0, y: 0, scale: 1 });
+  const vpRef = React.useRef({ x: 0, y: 0, scale: 1 });
   React.useEffect(() => { vpRef.current = vp; }, [vp]);
-  const [localNodes, setLocalNodes] = React.useState(() => (theories.nodes || []).map(n => ({ ...n })));
-  React.useEffect(() => { setLocalNodes((theories.nodes || []).map(n => ({ ...n }))); }, [(theories.nodes || []).length]);
-  const [selected, setSelected] = React.useState(null);
+
+  const [localNodes, setLocalNodes] = React.useState(() => nodes.map(n => ({ ...n })));
+  React.useEffect(() => { setLocalNodes(nodes.map(n => ({ ...n }))); }, [nodes.length]);
+
+  const [hovered, setHovered] = React.useState(null);
   const [hovEdge, setHovEdge] = React.useState(null);
-  const [connectFrom, setConnectFrom] = React.useState(null);
-  const [edgePending, setEdgePending] = React.useState(null);
-  const [edgeDraft, setEdgeDraft] = React.useState({ label: '', type: 'suspects' });
+  const [drag, setDrag] = React.useState(null);
+  const [linkDrag, setLinkDrag] = React.useState(null);
+  const [pendingThread, setPendingThread] = React.useState(null);
+  const [threadDraft, setThreadDraft] = React.useState({ type: 'suspects', label: '' });
+  const [panning, setPanning] = React.useState(false);
   const [editNode, setEditNode] = React.useState(null);
-  const [addPanel, setAddPanel] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [filter, setFilter] = React.useState(() => TB_THREAD_TYPES.reduce((a, t) => { a[t] = true; return a; }, {}));
+
+  const svgRef = React.useRef(null);
+  const linkRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const panRef = React.useRef(null);
   const rafRef = React.useRef(null);
   const mouseRef = React.useRef({ x: 0, y: 0 });
+  const hovEdgeRef = React.useRef(null);
+  React.useEffect(() => { hovEdgeRef.current = hovEdge; }, [hovEdge]);
+
+  React.useEffect(() => {
+    const onKey = e => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
+      if (hovEdgeRef.current) { e.preventDefault(); onRemoveEdge(hovEdgeRef.current); setHovEdge(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   React.useEffect(() => {
     const el = svgRef.current; if (!el) return;
-    const handler = e => {
+    const onWheel = e => {
       e.preventDefault();
       const v = vpRef.current, r = el.getBoundingClientRect();
-      const sx = (e.clientX - r.left) / r.width * THEORY_W, sy = (e.clientY - r.top) / r.height * THEORY_H;
-      const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      const ns = Math.max(0.15, Math.min(5, v.scale * f));
+      const sx = (e.clientX - r.left) / r.width * W, sy = (e.clientY - r.top) / r.height * H;
+      const f = e.deltaY < 0 ? 1.13 : 1 / 1.13;
+      const ns = Math.max(0.07, Math.min(7, v.scale * f));
       const cx = (sx - v.x) / v.scale, cy = (sy - v.y) / v.scale;
       const nv = { scale: ns, x: sx - cx * ns, y: sy - cy * ns };
       vpRef.current = nv; setVp(nv);
     };
-    el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  React.useEffect(() => {
-    const h = e => {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
-      if (selected) { onRemoveNode(selected); setSelected(null); }
-      else if (hovEdge) { onRemoveEdge(hovEdge); setHovEdge(null); }
-    };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
-  }, [selected, hovEdge]);
+  const applyZoom = ns => {
+    const v = vpRef.current; ns = Math.max(0.07, Math.min(7, ns));
+    const cx = (W / 2 - v.x) / v.scale, cy = (H / 2 - v.y) / v.scale;
+    const nv = { scale: ns, x: W / 2 - cx * ns, y: H / 2 - cy * ns };
+    vpRef.current = nv; setVp(nv);
+  };
 
-  const onMouseMove = e => {
+  const fitAll = () => {
+    if (!localNodes.length) return;
+    const pad = 110;
+    const xs = localNodes.map(n => n.x * W), ys = localNodes.map(n => n.y * H);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const bW = x1 - x0 + pad * 2 || 200, bH = y1 - y0 + pad * 2 || 200;
+    const scale = Math.min(W / bW, H / bH, 1.8);
+    const nv = { scale, x: W / 2 - ((x0 + x1) / 2) * scale, y: H / 2 - ((y0 + y1) / 2) * scale };
+    vpRef.current = nv; setVp(nv);
+  };
+
+  const screenToContent = (cx, cy) => {
+    const v = vpRef.current, r = svgRef.current.getBoundingClientRect();
+    return { x: ((cx - r.left) / r.width * W - v.x) / v.scale, y: ((cy - r.top) / r.height * H - v.y) / v.scale };
+  };
+
+  const nodeAtPoint = (x, y, exceptId) => localNodes.find(n => n.id !== exceptId && Math.hypot(n.x * W - x, n.y * H - y) <= 46);
+
+  const handleNodeDown = (e, node) => {
+    e.stopPropagation();
+    const v = vpRef.current, r = svgRef.current.getBoundingClientRect();
+    const sx = (e.clientX - r.left) / r.width * W, sy = (e.clientY - r.top) / r.height * H;
+    dragRef.current = { id: node.id, ox: (sx - v.x) / v.scale - node.x * W, oy: (sy - v.y) / v.scale - node.y * H };
+    setDrag({ id: node.id });
+  };
+
+  const handleLinkStart = (e, node) => {
+    e.stopPropagation(); e.preventDefault();
+    const p = screenToContent(e.clientX, e.clientY);
+    const start = { from: node.id, x1: node.x * W, y1: node.y * H, x2: p.x, y2: p.y, over: null };
+    linkRef.current = start; setLinkDrag(start); setHovered(node.id);
+  };
+
+  const handlePanStart = e => {
+    if (e.button !== 0) return;
+    const v = vpRef.current, r = svgRef.current.getBoundingClientRect();
+    panRef.current = { sx0: (e.clientX - r.left) / r.width * W, sy0: (e.clientY - r.top) / r.height * H, vx0: v.x, vy0: v.y };
     mouseRef.current = { x: e.clientX, y: e.clientY };
-    if (!dragRef.current && !panRef.current) return;
+    setPanning(true);
+  };
+
+  const handleMove = e => {
+    mouseRef.current = { x: e.clientX, y: e.clientY };
+    if (!dragRef.current && !linkRef.current && !panRef.current) return;
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      const el = svgRef.current; if (!el) return;
-      const r = el.getBoundingClientRect(), v = vpRef.current;
-      const { x: mx, y: my } = mouseRef.current;
-      if (dragRef.current) {
-        const { id, ox, oy } = dragRef.current;
-        const px = ((mx - r.left) / r.width * THEORY_W - v.x) / v.scale - ox;
-        const py = ((my - r.top) / r.height * THEORY_H - v.y) / v.scale - oy;
-        setLocalNodes(prev => prev.map(n => n.id === id ? { ...n, x: Math.max(0.01, Math.min(0.99, px / THEORY_W)), y: Math.max(0.01, Math.min(0.99, py / THEORY_H)) } : n));
-      }
-      if (panRef.current) {
-        const { smx, smy, svp } = panRef.current;
-        const dx = (mx - r.left) / r.width * THEORY_W - (smx - r.left) / r.width * THEORY_W;
-        const dy = (my - r.top) / r.height * THEORY_H - (smy - r.top) / r.height * THEORY_H;
-        const nv = { ...svp, x: svp.x + dx, y: svp.y + dy };
+      rafRef.current = null; if (!svgRef.current) return;
+      const r = svgRef.current.getBoundingClientRect();
+      const sx = (mouseRef.current.x - r.left) / r.width * W, sy = (mouseRef.current.y - r.top) / r.height * H;
+      const v = vpRef.current;
+      if (linkRef.current) {
+        const p = screenToContent(mouseRef.current.x, mouseRef.current.y);
+        const over = nodeAtPoint(p.x, p.y, linkRef.current.from);
+        const next = { ...linkRef.current, x2: p.x, y2: p.y, over: over?.id || null };
+        linkRef.current = next; setLinkDrag(next); setHovered(over?.id || linkRef.current.from);
+      } else if (dragRef.current) {
+        const d = dragRef.current, cx = (sx - v.x) / v.scale, cy = (sy - v.y) / v.scale;
+        setLocalNodes(prev => prev.map(n => n.id === d.id ? { ...n, x: Math.max(0.01, Math.min(0.99, (cx - d.ox) / W)), y: Math.max(0.01, Math.min(0.99, (cy - d.oy) / H)) } : n));
+      } else if (panRef.current) {
+        const p = panRef.current;
+        const nv = { ...v, x: p.vx0 + (sx - p.sx0), y: p.vy0 + (sy - p.sy0) };
         vpRef.current = nv; setVp(nv);
       }
     });
   };
 
-  const onMouseUp = () => {
+  const handleUp = e => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (linkRef.current) {
+      const pt = e ? screenToContent(e.clientX, e.clientY) : null;
+      const target = pt ? nodeAtPoint(pt.x, pt.y, linkRef.current.from) : null;
+      const link = { ...linkRef.current, over: target?.id || linkRef.current.over };
+      linkRef.current = null; setLinkDrag(null); setHovered(null);
+      if (e && link.over) {
+        const na = localNodes.find(n => n.id === link.from), nb = localNodes.find(n => n.id === link.over);
+        setThreadDraft({ type: 'suspects', label: '' });
+        setPendingThread({ a: link.from, b: link.over, x: ((na?.x || 0.5) * W + (nb?.x || 0.5) * W) / 2, y: ((na?.y || 0.5) * H + (nb?.y || 0.5) * H) / 2 });
+      }
+      return;
+    }
     if (dragRef.current) {
       const node = localNodes.find(n => n.id === dragRef.current.id);
       if (node) onUpdateNode(node.id, { x: node.x, y: node.y });
-      dragRef.current = null;
+      dragRef.current = null; setDrag(null);
     }
-    panRef.current = null;
+    panRef.current = null; setPanning(false);
   };
 
-  const onNodeDown = (e, node) => {
-    e.stopPropagation();
-    if (connectFrom !== null) {
-      if (connectFrom !== node.id) { setEdgePending({ from: connectFrom, to: node.id }); setConnectFrom(null); }
-      return;
-    }
-    setSelected(node.id);
-    const el = svgRef.current, r = el.getBoundingClientRect(), v = vpRef.current;
-    const mx = (e.clientX - r.left) / r.width * THEORY_W, my = (e.clientY - r.top) / r.height * THEORY_H;
-    dragRef.current = { id: node.id, ox: (mx - v.x) / v.scale - node.x * THEORY_W, oy: (my - v.y) / v.scale - node.y * THEORY_H };
+  const handleLeave = () => { if (linkRef.current) { linkRef.current = null; setLinkDrag(null); setHovered(null); return; } handleUp(); };
+
+  const sq = search.trim().toLowerCase(), searching = sq.length > 0;
+  const matchesSearch = l => (l || '').toLowerCase().includes(sq);
+  const visibleEdge = e => filter[e.type] !== false;
+  const nodeOpacity = n => {
+    if (searching) return matchesSearch(n.label) ? 1 : 0.1;
+    const hd = hovered && hovered !== n.id && !edges.some(e => (e.a === hovered && e.b === n.id) || (e.b === hovered && e.a === n.id));
+    const ed = hovEdge && !edges.some(e => e.id === hovEdge && (e.a === n.id || e.b === n.id));
+    return hd || ed ? 0.18 : 1;
+  };
+  const edgeOpacity = e => {
+    if (searching) { const aM = matchesSearch(localNodes.find(n => n.id === e.a)?.label || ''), bM = matchesSearch(localNodes.find(n => n.id === e.b)?.label || ''); return aM && bM ? 0.9 : aM || bM ? 0.3 : 0.04; }
+    if (!hovered && !hovEdge) return 0.9;
+    return (hovered && (hovered === e.a || hovered === e.b)) || hovEdge === e.id ? 1 : 0.12;
   };
 
-  const onCanvasDown = e => {
-    if (connectFrom === null) setSelected(null);
-    if (!connectFrom) panRef.current = { smx: e.clientX, smy: e.clientY, svp: { ...vpRef.current } };
-  };
+  const pendingPos = pendingThread ? {
+    left: Math.max(18, Math.min(82, ((pendingThread.x * vp.scale + vp.x) / W) * 100)) + '%',
+    top: Math.max(16, Math.min(84, ((pendingThread.y * vp.scale + vp.y) / H) * 100)) + '%',
+  } : null;
+  const tdStyle = tbThreadStyle(threadDraft.type);
+  const iS = { background: 'oklch(0.16 0.012 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '5px 8px', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' };
 
-  const submitEdge = e => {
-    e.preventDefault();
-    if (edgePending) onAddEdge(edgePending.from, edgePending.to, edgeDraft.label, edgeDraft.type);
-    setEdgePending(null); setEdgeDraft({ label: '', type: 'suspects' }); setConnectFrom(null);
-  };
-
-  const existingNpcIds = (theories.nodes || []).map(n => n.npcId).filter(Boolean);
+  const onBoard = new Set(nodes.map(n => n.sourceId).filter(Boolean));
 
   return (
-    <div className="theory-board-wrap">
-      <div className="theory-toolbar">
-        <button className={`tbtn ${connectFrom !== null ? 'brass' : ''}`} onClick={() => setConnectFrom(connectFrom !== null ? null : '')}>
-          {connectFrom === null ? 'Connect nodes' : connectFrom === '' ? 'Click first node...' : 'Click second node...'}
-        </button>
-        <button className={`tbtn ${addPanel ? 'brass' : ''}`} onClick={() => setAddPanel(v => !v)}>Add node</button>
-        <span className="theory-toolbar-sep" />
-        <button className="tbtn" onClick={() => { const nv = { x: 40, y: 40, scale: 1 }; vpRef.current = nv; setVp(nv); }}>Reset view</button>
-        <span className="theory-hint">{connectFrom !== null ? (connectFrom === '' ? 'Click the first node to connect from' : 'Now click the target node') : selected ? 'Delete/Backspace to remove node -- Double-click to edit' : 'Drag nodes -- Scroll to zoom -- Drag canvas to pan'}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 252px', gap: 16, alignItems: 'start', padding: '0 0 24px' }}>
+
+      <div className="card cornered" style={{ overflow: 'hidden' }}>
+        <div className="head" style={{ gap: 6 }}>
+          <span className="title">Conspiracy Board</span>
+          <div className="spacer" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'oklch(0.16 0.012 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '3px 9px', fontSize: 11.5, outline: 'none', width: 120 }} />
+          <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+            <button className="tbtn" style={{ fontSize: 13, padding: '1px 8px', lineHeight: 1.4 }} onClick={() => applyZoom(vpRef.current.scale * 1.25)}>+</button>
+            <button className="tbtn" style={{ fontSize: 13, padding: '1px 8px', lineHeight: 1.4 }} onClick={() => applyZoom(vpRef.current.scale / 1.25)}>-</button>
+            <button className="tbtn" style={{ fontSize: 10.5, padding: '2px 8px' }} onClick={fitAll}>Fit</button>
+            <button className="tbtn" style={{ fontSize: 10.5, padding: '2px 8px' }} onClick={() => { const nv = { x: 0, y: 0, scale: 1 }; vpRef.current = nv; setVp(nv); }}>1:1</button>
+            <span className="mono muted" style={{ fontSize: 10, minWidth: 34, textAlign: 'right' }}>{Math.round(vp.scale * 100)}%</span>
+          </div>
+          <span className="smallcaps muted" style={{ fontSize: 10, marginLeft: 4 }}>{edges.filter(visibleEdge).length} threads / {nodes.length} portraits</span>
+        </div>
+
+        <div style={{ position: 'relative', height: 'calc(100vh - 295px)', minHeight: 440, background: 'radial-gradient(120% 80% at 50% 30%, oklch(0.20 0.012 60) 0%, oklch(0.13 0.012 60) 100%)', userSelect: 'none', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg, oklch(0 0 0 / 0.06) 0px, oklch(0 0 0 / 0.06) 1px, transparent 1px, transparent 4px), radial-gradient(oklch(0.32 0.06 60 / 0.12) 1px, transparent 1.6px)', backgroundSize: 'auto, 6px 6px', opacity: 0.6 }} />
+          {!nodes.length && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, pointerEvents: 'none' }}>
+              <div style={{ color: 'var(--fg-3)', fontFamily: 'var(--f-display)', fontSize: 22, fontStyle: 'italic' }}>No portraits pinned yet</div>
+              <div style={{ color: 'var(--fg-4)', fontSize: 12 }}>Add from the panel on the right</div>
+            </div>
+          )}
+          <svg ref={svgRef} viewBox={'0 0 ' + W + ' ' + H} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: linkDrag ? 'crosshair' : drag || panning ? 'grabbing' : 'grab' }} onMouseDown={handlePanStart} onMouseMove={handleMove} onMouseUp={handleUp} onMouseLeave={handleLeave}>
+            <defs>
+              <filter id="tb-shadow"><feDropShadow dx="0" dy="1" stdDeviation="0.6" floodOpacity="0.55" /></filter>
+              <filter id="tb-lift"><feDropShadow dx="0" dy="4" stdDeviation="5" floodOpacity="0.5" /></filter>
+            </defs>
+            <g transform={'translate(' + vp.x + ' ' + vp.y + ') scale(' + vp.scale + ')'}>
+              {edges.filter(visibleEdge).map(e => {
+                const na = localNodes.find(n => n.id === e.a), nb = localNodes.find(n => n.id === e.b);
+                if (!na || !nb) return null;
+                const s = tbThreadStyle(e.type);
+                const x1 = na.x * W, y1 = na.y * H, x2 = nb.x * W, y2 = nb.y * H;
+                const isA = (hovered && (hovered === e.a || hovered === e.b)) || hovEdge === e.id;
+                const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                return (
+                  <g key={e.id} filter="url(#tb-shadow)" opacity={edgeOpacity(e)}>
+                    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={s.stroke} strokeWidth={isA ? s.w + 1.2 : s.w} strokeDasharray={s.dash} strokeLinecap="round" pointerEvents="none" />
+                    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={Math.max(20, 20 / vp.scale)} onMouseEnter={() => setHovEdge(e.id)} onMouseLeave={() => setHovEdge(null)} style={{ cursor: 'default' }} />
+                    {isA && e.label && e.label !== '-' && (
+                      <g transform={'translate(' + mx + ',' + my + ')'}>
+                        <rect x="-34" y="-10" width="68" height="18" rx="3" fill="oklch(0.18 0.012 60)" stroke={s.stroke} strokeWidth="0.6" />
+                        <text textAnchor="middle" y="4" fontFamily="Cormorant Garamond, serif" fontSize="11.5" fontStyle="italic" fill="oklch(0.92 0.012 80)">{e.label}</text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+              {linkDrag && (
+                <g pointerEvents="none" filter="url(#tb-shadow)">
+                  <line x1={linkDrag.x1} y1={linkDrag.y1} x2={linkDrag.x2} y2={linkDrag.y2} stroke={tbThreadStyle('suspects').stroke} strokeWidth={tbThreadStyle('suspects').w} strokeDasharray={tbThreadStyle('suspects').dash} strokeLinecap="round" opacity={linkDrag.over ? 0.95 : 0.55} />
+                </g>
+              )}
+              {localNodes.map(n => {
+                const cx = n.x * W, cy = n.y * H;
+                const isD = drag && drag.id === n.id, isL = linkDrag && (linkDrag.from === n.id || linkDrag.over === n.id);
+                return (
+                  <g key={n.id} transform={'translate(' + cx + ',' + cy + ')'} opacity={nodeOpacity(n)} filter={isD || isL ? 'url(#tb-lift)' : undefined}
+                     onMouseEnter={() => !drag && !linkDrag && setHovered(n.id)} onMouseLeave={() => !drag && !linkDrag && setHovered(null)}
+                     onMouseDown={e => handleNodeDown(e, n)} onDoubleClick={() => setEditNode({ ...n })}
+                     style={{ cursor: isD ? 'grabbing' : 'grab' }}>
+                    <TBPortrait label={n.label} type={n.type} image={n.image || ''} onLinkStart={e => handleLinkStart(e, n)} />
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+
+          {pendingThread && (
+            <form className="card cornered" onSubmit={e => { e.preventDefault(); onAddEdge(pendingThread.a, pendingThread.b, threadDraft.label.trim(), threadDraft.type); setPendingThread(null); }} style={{ position: 'absolute', ...pendingPos, transform: 'translate(-50%,-50%)', width: 278, zIndex: 5, overflow: 'hidden', boxShadow: 'var(--shadow-card), 0 18px 45px oklch(0 0 0 / 0.45)' }}>
+              <div className="head" style={{ padding: '8px 12px' }}>
+                <span className="title">Bind a thread</span>
+                <div className="spacer" />
+                <button type="button" className="tbtn" style={{ fontSize: 10, padding: '1px 7px' }} onClick={() => setPendingThread(null)}>Cancel</button>
+              </div>
+              <div className="body" style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--fg-3)', marginBottom: 8, fontStyle: 'italic' }}>
+                  {localNodes.find(n => n.id === pendingThread.a)?.label || pendingThread.a} {'→'} {localNodes.find(n => n.id === pendingThread.b)?.label || pendingThread.b}
+                </div>
+                <svg width="100%" height="12" style={{ display: 'block', margin: '-2px 0 8px' }}>
+                  <line x1="0" y1="6" x2="100%" y2="6" stroke={tdStyle.stroke} strokeWidth={tdStyle.w + 0.5} strokeDasharray={tdStyle.dash} strokeLinecap="round" opacity="0.9" />
+                </svg>
+                <div className="grid" style={{ gridTemplateColumns: '110px 1fr', gap: 7 }}>
+                  <select value={threadDraft.type} onChange={e => setThreadDraft(d => ({ ...d, type: e.target.value }))} style={iS} autoFocus>
+                    {TB_THREAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input value={threadDraft.label} onChange={e => setThreadDraft(d => ({ ...d, label: e.target.value }))} placeholder="Label (optional)" style={iS} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button type="submit" className="tbtn brass" style={{ fontSize: 11, padding: '3px 10px' }}>Place thread</button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+        <div style={{ padding: '7px 16px', fontSize: 11, color: 'var(--fg-4)', fontStyle: 'italic', borderTop: '1px solid var(--hairline-2)' }}>
+          Scroll to zoom — drag canvas to pan — drag portraits to move — drag tack pin to connect — double-click to edit
+        </div>
       </div>
-      {edgePending && (
-        <form className="theory-edge-form" onSubmit={submitEdge}>
-          <span style={{ fontSize: 12, color: 'var(--fg-3)', flexShrink: 0 }}>Type:</span>
-          <select value={edgeDraft.type} onChange={e => setEdgeDraft(d => ({ ...d, type: e.target.value }))}>
-            {THEORY_EDGE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-          </select>
-          <input value={edgeDraft.label} onChange={e => setEdgeDraft(d => ({ ...d, label: e.target.value }))} placeholder="Optional note..." autoFocus style={{ flex: 1 }} />
-          <button type="submit" className="tbtn brass">Add connection</button>
-          <button type="button" className="tbtn" onClick={() => { setEdgePending(null); setConnectFrom(null); }}>Cancel</button>
-        </form>
+
+      <div className="col" style={{ gap: 12 }}>
+        <div className="card cornered">
+          <div className="head"><span className="title">Show / hide</span></div>
+          <div className="body" style={{ padding: '6px 14px' }}>
+            {TB_THREAD_TYPES.map(type => {
+              const s = tbThreadStyle(type);
+              return (
+                <div key={type} className="between" style={{ padding: '4px 0', cursor: 'pointer' }} onClick={() => setFilter(f => ({ ...f, [type]: !f[type] }))}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <svg width="32" height="8"><line x1="0" y1="4" x2="32" y2="4" stroke={s.stroke} strokeWidth="2" strokeDasharray={s.dash} strokeLinecap="round" opacity={filter[type] ? 1 : 0.25} /></svg>
+                    <span style={{ fontSize: 12, opacity: filter[type] ? 1 : 0.4, textTransform: 'capitalize' }}>{type}</span>
+                  </div>
+                  <span className="mono muted" style={{ fontSize: 10 }}>{filter[type] ? 'shown' : 'hidden'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card cornered">
+          <div className="head"><span className="title">Threads</span><div className="spacer" /><span className="smallcaps muted" style={{ fontSize: 10 }}>{edges.length}</span></div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {edges.map(e => {
+              const na = nodes.find(n => n.id === e.a), nb = nodes.find(n => n.id === e.b);
+              const s = tbThreadStyle(e.type);
+              return (
+                <div key={e.id} style={{ display: 'flex', gap: 7, alignItems: 'center', padding: '5px 12px', borderBottom: '1px solid var(--hairline-2)', background: hovEdge === e.id ? 'oklch(0.26 0.02 70 / 0.4)' : 'transparent' }} onMouseEnter={() => setHovEdge(e.id)} onMouseLeave={() => setHovEdge(null)}>
+                  <svg width="14" height="8" style={{ flexShrink: 0 }}><line x1="0" y1="4" x2="14" y2="4" stroke={s.stroke} strokeWidth="2" strokeDasharray={s.dash} strokeLinecap="round" /></svg>
+                  <span style={{ fontSize: 11.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{na?.label || e.a} {'→'} {nb?.label || e.b}</span>
+                  <span className="muted" style={{ fontSize: 10, flexShrink: 0, textTransform: 'capitalize' }}>{e.type}</span>
+                  <button style={{ background: 'transparent', border: 0, color: 'var(--fg-4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }} onClick={() => onRemoveEdge(e.id)}>×</button>
+                </div>
+              );
+            })}
+            {!edges.length && <div style={{ padding: '10px 14px', color: 'var(--fg-3)', fontSize: 12, fontStyle: 'italic' }}>No threads yet.</div>}
+          </div>
+        </div>
+
+        <div className="card cornered">
+          <div className="head"><span className="title">Portraits</span><div className="spacer" /><span className="smallcaps muted" style={{ fontSize: 10 }}>{nodes.length}</span></div>
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {nodes.map(n => (
+              <div key={n.id} className="clickable" onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(null)} style={{ padding: '6px 12px', borderBottom: '1px dashed var(--hairline-2)', display: 'flex', gap: 9, alignItems: 'center', background: hovered === n.id ? 'oklch(0.26 0.02 70 / 0.6)' : 'transparent' }}>
+                <TBNodeAvatar type={n.type} image={n.image || ''} />
+                <div style={{ flex: 1, minWidth: 0 }} onDoubleClick={() => setEditNode({ ...n })} title="Double-click to edit">
+                  <div style={{ fontFamily: 'var(--f-display)', fontSize: 13 }}>{n.label}</div>
+                  <div className="muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em' }}>{n.type}</div>
+                </div>
+                <button style={{ background: 'transparent', border: 0, color: 'var(--fg-4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }} onClick={() => onRemoveNode(n.id)}>×</button>
+              </div>
+            ))}
+            {!nodes.length && <div style={{ padding: '10px 14px', color: 'var(--fg-3)', fontSize: 12, fontStyle: 'italic' }}>No portraits pinned yet.</div>}
+          </div>
+        </div>
+
+        <TBAddPanel nodes={nodes} publicNpcs={publicNpcs} publicParty={publicParty} customChars={customChars} onAdd={onAddNode} />
+      </div>
+
+      {editNode && (
+        <div className="theory-node-editor-backdrop" onClick={() => setEditNode(null)}>
+          <div className="theory-node-editor" onClick={e => e.stopPropagation()}>
+            <div className="theory-node-editor-head"><span>{editNode.label}</span><button type="button" onClick={() => setEditNode(null)}>×</button></div>
+            <TBNodeEditorBody node={editNode} onSave={p => { onUpdateNode(editNode.id, p); setEditNode(null); }} onRemove={() => { onRemoveNode(editNode.id); setEditNode(null); }} />
+          </div>
+        </div>
       )}
-      <div className="theory-canvas-wrap">
-        {addPanel && (
-          <TheoryAddPanel publicNpcs={publicNpcs} existingNpcIds={existingNpcIds} onAdd={(label, type, npcId, note) => { onAddNode(label, type, npcId, note); setAddPanel(false); }} onClose={() => setAddPanel(false)} />
-        )}
-        <svg ref={svgRef} className="theory-svg" viewBox={`0 0 ${THEORY_W} ${THEORY_H}`} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} onMouseDown={onCanvasDown} style={{ cursor: connectFrom !== null ? 'crosshair' : 'default' }}>
-          <defs>
-            <marker id="th-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-              <polygon points="0 0, 7 3.5, 0 7" fill="oklch(0.45 0.02 60)" />
-            </marker>
-          </defs>
-          <g transform={`translate(${vp.x},${vp.y}) scale(${vp.scale})`}>
-            {(theories.edges || []).map(edge => {
-              const na = localNodes.find(n => n.id === edge.a), nb = localNodes.find(n => n.id === edge.b);
-              if (!na || !nb) return null;
-              const ax = na.x * THEORY_W, ay = na.y * THEORY_H, bx = nb.x * THEORY_W, by = nb.y * THEORY_H;
-              const col = THEORY_EDGE_COLOR[edge.type] || 'var(--fg-3)', isHov = hovEdge === edge.id;
-              return (
-                <g key={edge.id}>
-                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke={col} strokeWidth={isHov ? 2.5 : 1.5} strokeOpacity={isHov ? 0.9 : 0.5} strokeDasharray={edge.type === 'unknown' ? '6,4' : undefined} markerEnd="url(#th-arrow)" />
-                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke="transparent" strokeWidth={18} onMouseEnter={() => setHovEdge(edge.id)} onMouseLeave={() => setHovEdge(null)} onClick={() => { if (window.confirm('Remove this connection?')) onRemoveEdge(edge.id); }} style={{ cursor: 'pointer' }} />
-                  <text x={(ax + bx) / 2} y={(ay + by) / 2 - 8} textAnchor="middle" fontSize={10} fill={col} fillOpacity={0.8} style={{ userSelect: 'none', pointerEvents: 'none' }}>{edge.label || edge.type}</text>
-                </g>
-              );
-            })}
-            {localNodes.map(node => {
-              const cx = node.x * THEORY_W, cy = node.y * THEORY_H;
-              const isSel = selected === node.id, isConnSrc = connectFrom === node.id;
-              const col = THEORY_TYPE_COLOR[node.type] || 'var(--fg-3)';
-              const suspRing = node.suspicion === 'high' ? 'var(--crimson)' : node.suspicion === 'medium' ? 'var(--amber)' : 'var(--forest)';
-              const initials = (node.label || '?').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
-              return (
-                <g key={node.id} style={{ cursor: 'pointer' }} onMouseDown={e => onNodeDown(e, node)} onDoubleClick={e => { e.stopPropagation(); setEditNode({ ...node }); }}>
-                  {(isSel || isConnSrc) && <circle cx={cx} cy={cy} r={NODE_R + 8} fill="none" stroke={isConnSrc ? 'var(--amber)' : 'white'} strokeWidth={1.5} strokeOpacity={0.55} />}
-                  <circle cx={cx} cy={cy} r={NODE_R + 3} fill="none" stroke={suspRing} strokeWidth={2.5} strokeOpacity={0.4} />
-                  <circle cx={cx} cy={cy} r={NODE_R} fill="oklch(0.16 0.015 60)" stroke={col} strokeWidth={isSel ? 2.5 : 1.5} />
-                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight={700} fill={col} style={{ userSelect: 'none', pointerEvents: 'none', fontFamily: 'var(--f-display)' }}>{initials}</text>
-                  <text x={cx} y={cy + NODE_R + 15} textAnchor="middle" fontSize={11.5} fill="var(--fg-1)" style={{ userSelect: 'none', pointerEvents: 'none' }}>{node.label.length > 16 ? node.label.slice(0, 15) + '...' : node.label}</text>
-                  {node.note && <text x={cx} y={cy + NODE_R + 28} textAnchor="middle" fontSize={9.5} fill="var(--fg-4)" style={{ userSelect: 'none', pointerEvents: 'none' }}>{node.note.slice(0, 26)}{node.note.length > 26 ? '...' : ''}</text>}
-                </g>
-              );
-            })}
-          </g>
-        </svg>
-      </div>
-      {editNode && <TheoryNodeEditor node={editNode} onSave={p => { onUpdateNode(editNode.id, p); setEditNode(null); }} onRemove={() => { onRemoveNode(editNode.id); setEditNode(null); setSelected(null); }} onClose={() => setEditNode(null)} />}
     </div>
   );
 }
 
-function TheoryAddPanel({ publicNpcs, existingNpcIds, onAdd, onClose }) {
-  const [tab, setTab] = React.useState(publicNpcs.length ? 'npc' : 'custom');
-  const [label, setLabel] = React.useState('');
-  const [type, setType] = React.useState('unknown');
-  const [note, setNote] = React.useState('');
+function TBNodeEditorBody({ node, onSave, onRemove }) {
+  const [d, setD] = React.useState({ label: node.label || '', note: node.note || '', suspicion: node.suspicion || 'medium', image: node.image || '' });
   const iS = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.14 0.01 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 12.5, outline: 'none', fontFamily: 'inherit' };
-  const addCustom = e => { e.preventDefault(); if (!label.trim()) return; onAdd(label, type, null, note); };
   return (
-    <div className="theory-add-panel">
-      <div className="theory-add-head"><span>Add to board</span><button type="button" onClick={onClose}>x</button></div>
-      <div className="theory-subtabs">
-        <button type="button" className={tab === 'npc' ? 'active' : ''} onClick={() => setTab('npc')}>Known NPC</button>
-        <button type="button" className={tab === 'custom' ? 'active' : ''} onClick={() => setTab('custom')}>Unknown / Theory</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px' }}>
+      <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Name / label</div><input value={d.label} onChange={e => setD(p => ({ ...p, label: e.target.value }))} style={iS} autoFocus /></div>
+      <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Portrait URL</div><input value={d.image} onChange={e => setD(p => ({ ...p, image: e.target.value }))} placeholder="https://..." style={iS} /></div>
+      <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Private theory / note</div><textarea value={d.note} onChange={e => setD(p => ({ ...p, note: e.target.value }))} placeholder="What do you suspect about this person?" rows={4} style={{ ...iS, resize: 'vertical' }} /></div>
+      <div>
+        <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 6 }}>Suspicion level</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[['low', 'var(--forest)'], ['medium', 'var(--amber)'], ['high', 'var(--crimson)']].map(([s, col]) => (
+            <button key={s} type="button" className="tbtn" style={{ flex: 1, justifyContent: 'center', borderColor: d.suspicion === s ? col : undefined, color: d.suspicion === s ? col : undefined }} onClick={() => setD(p => ({ ...p, suspicion: s }))}>{s}</button>
+          ))}
+        </div>
       </div>
-      {tab === 'npc' && (
-        <div className="theory-npc-list">
-          {publicNpcs.length === 0 && <div className="muted" style={{ padding: 12, fontSize: 12 }}>No NPCs published by the DM yet.</div>}
+      <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--hairline-2)' }}>
+        <button type="button" className="tbtn brass" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSave(d)}>Save</button>
+        <button type="button" className="tbtn" style={{ color: 'var(--crimson)' }} onClick={onRemove}>Remove</button>
+      </div>
+    </div>
+  );
+}
+
+function TBAddPanel({ nodes, publicNpcs, publicParty, customChars, onAdd }) {
+  const [tab, setTab] = React.useState('dm');
+  const [cname, setCname] = React.useState('');
+  const [crole, setCrele] = React.useState('');
+  const [cimg, setCimg] = React.useState('');
+  const [cnote, setCnote] = React.useState('');
+  const [ctype, setCtype] = React.useState('custom');
+  const onBoard = new Set(nodes.map(n => n.sourceId).filter(Boolean));
+  const iS = { background: 'oklch(0.16 0.012 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '5px 8px', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' };
+  return (
+    <div className="card cornered">
+      <div className="head"><span className="title">Add portrait</span></div>
+      <div className="theory-subtabs" style={{ borderBottom: '1px solid var(--hairline)' }}>
+        <button type="button" className={tab === 'dm' ? 'active' : ''} onClick={() => setTab('dm')}>DM NPCs</button>
+        <button type="button" className={tab === 'party' ? 'active' : ''} onClick={() => setTab('party')}>Party</button>
+        <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>Mine</button>
+        <button type="button" className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>New</button>
+      </div>
+      {tab === 'dm' && (
+        <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          {!publicNpcs.length && <div style={{ padding: '10px 14px', color: 'var(--fg-3)', fontSize: 12, fontStyle: 'italic' }}>No NPCs published by DM yet.</div>}
           {publicNpcs.map(n => {
-            const added = existingNpcIds.includes(n.id);
-            return <button key={n.id} type="button" className="theory-npc-btn" disabled={added} onClick={() => onAdd(n.name, 'npc', n.id, '')}><span className="theory-npc-name">{n.name}</span>{n.title && <span className="theory-npc-title">{n.title}</span>}{added && <span className="smallcaps" style={{ fontSize: 9, color: 'var(--fg-4)', marginLeft: 'auto', flexShrink: 0 }}>on board</span>}</button>;
+            const added = onBoard.has(n.id);
+            return (
+              <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid var(--hairline-2)' }}>
+                <div style={{ opacity: added ? 0.45 : 1 }}>
+                  <div style={{ fontFamily: 'var(--f-display)', fontSize: 13 }}>{n.name}</div>
+                  {n.title && <div className="muted" style={{ fontSize: 10 }}>{n.title}</div>}
+                </div>
+                <button className="tbtn" style={{ fontSize: 10.5, padding: '2px 8px' }} disabled={added} onClick={() => onAdd(n.name, 'npc', n.id, '', n.image || '')}>Pin</button>
+              </div>
+            );
           })}
         </div>
       )}
-      {tab === 'custom' && (
-        <form onSubmit={addCustom} style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Label *</div><input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. The Contact, Unknown Mage..." style={iS} autoFocus /></div>
-          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Type</div><select value={type} onChange={e => setType(e.target.value)} style={{ ...iS, paddingRight: 8 }}><option value="unknown">Unknown person</option><option value="faction">Faction / organization</option><option value="event">Event / incident</option><option value="npc">Known NPC (manual)</option></select></div>
-          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Your theory (private)</div><textarea value={note} onChange={e => setNote(e.target.value)} placeholder="What do you suspect? What did you observe?" style={{ ...iS, resize: 'vertical', minHeight: 60 }} /></div>
+      {tab === 'party' && (
+        <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          {!(publicParty || []).length && <div style={{ padding: '10px 14px', color: 'var(--fg-3)', fontSize: 12, fontStyle: 'italic' }}>No party members published yet.</div>}
+          {(publicParty || []).map(m => {
+            const pid = 'party-' + (m.name || '').replace(/\s+/g, '-').toLowerCase();
+            const added = onBoard.has(pid);
+            return (
+              <div key={pid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid var(--hairline-2)' }}>
+                <div style={{ opacity: added ? 0.45 : 1 }}>
+                  <div style={{ fontFamily: 'var(--f-display)', fontSize: 13 }}>{m.name}</div>
+                  {m.role && <div className="muted" style={{ fontSize: 10 }}>{m.role}</div>}
+                </div>
+                <button className="tbtn" style={{ fontSize: 10.5, padding: '2px 8px' }} disabled={added} onClick={() => onAdd(m.name, 'party', pid, '', m.image || '')}>Pin</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === 'mine' && (
+        <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          {!(customChars || []).length && <div style={{ padding: '10px 14px', color: 'var(--fg-3)', fontSize: 12, fontStyle: 'italic' }}>No custom contacts yet — create one under New.</div>}
+          {(customChars || []).map(c => {
+            const added = onBoard.has(c.id);
+            return (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid var(--hairline-2)' }}>
+                <div style={{ opacity: added ? 0.45 : 1 }}>
+                  <div style={{ fontFamily: 'var(--f-display)', fontSize: 13 }}>{c.name}</div>
+                  {c.role && <div className="muted" style={{ fontSize: 10 }}>{c.role}</div>}
+                </div>
+                <button className="tbtn" style={{ fontSize: 10.5, padding: '2px 8px' }} disabled={added} onClick={() => onAdd(c.name, 'custom', c.id, c.note || '', c.image || '')}>Pin</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === 'new' && (
+        <form style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }} onSubmit={e => { e.preventDefault(); if (!cname.trim()) return; onAdd(cname, ctype, null, cnote, cimg); setCname(''); setCrele(''); setCimg(''); setCnote(''); }}>
+          <input value={cname} onChange={e => setCname(e.target.value)} placeholder="Name *" style={iS} autoFocus />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <input value={crole} onChange={e => setCrele(e.target.value)} placeholder="Role / title" style={iS} />
+            <select value={ctype} onChange={e => setCtype(e.target.value)} style={iS}>
+              <option value="custom">Unknown person</option>
+              <option value="faction">Faction</option>
+              <option value="event">Event</option>
+              <option value="npc">Named NPC</option>
+            </select>
+          </div>
+          <input value={cimg} onChange={e => setCimg(e.target.value)} placeholder="Portrait URL (optional)" style={iS} />
+          <textarea value={cnote} onChange={e => setCnote(e.target.value)} placeholder="Private notes / theory..." rows={3} style={{ ...iS, resize: 'vertical' }} />
           <button type="submit" className="tbtn brass">Add to board</button>
         </form>
       )}
@@ -1212,51 +1603,22 @@ function TheoryAddPanel({ publicNpcs, existingNpcIds, onAdd, onClose }) {
   );
 }
 
-function TheoryNodeEditor({ node, onSave, onRemove, onClose }) {
-  const [d, setD] = React.useState({ label: node.label, note: node.note || '', suspicion: node.suspicion || 'medium' });
-  const iS = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.14 0.01 60)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '7px 10px', fontSize: 12.5, outline: 'none', fontFamily: 'inherit' };
-  React.useEffect(() => {
-    const h = e => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
-  }, [onClose]);
+function PlayerTheories({ theories, publicNpcs, publicParty, customChars, player, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
+  const nodes = theories?.nodes || [], edges = theories?.edges || [];
   return (
-    <div className="theory-node-editor-backdrop" onClick={onClose}>
-      <div className="theory-node-editor" onClick={e => e.stopPropagation()}>
-        <div className="theory-node-editor-head"><span>{node.label}</span><button type="button" onClick={onClose}>x</button></div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px' }}>
-          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Name / label</div><input value={d.label} onChange={e => setD(p => ({ ...p, label: e.target.value }))} style={iS} autoFocus /></div>
-          <div><div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 3 }}>Your theory / private note</div><textarea value={d.note} onChange={e => setD(p => ({ ...p, note: e.target.value }))} placeholder="What do you suspect? What did you notice?" rows={5} style={{ ...iS, resize: 'vertical' }} /></div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--fg-4)', marginBottom: 6 }}>Suspicion level</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[['low', 'var(--forest)'], ['medium', 'var(--amber)'], ['high', 'var(--crimson)']].map(([s, col]) => (
-                <button key={s} type="button" className="tbtn" style={{ flex: 1, justifyContent: 'center', borderColor: d.suspicion === s ? col : undefined, color: d.suspicion === s ? col : undefined }} onClick={() => setD(p => ({ ...p, suspicion: s }))}>{s}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--hairline-2)' }}>
-            <button type="button" className="tbtn brass" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSave(d)}>Save</button>
-            <button type="button" className="tbtn" style={{ color: 'var(--crimson)' }} onClick={onRemove}>Remove node</button>
-          </div>
+    <div className="player-tab-page" style={{ padding: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '20px 24px 12px' }}>
+        <div>
+          <h2 style={{ fontFamily: 'var(--f-display)', fontSize: 24, margin: 0 }}>Theory Board</h2>
+          <p style={{ fontSize: 12.5, color: 'var(--fg-4)', margin: '4px 0 0' }}>Private to you — suspects, hunches, connections. The DM never sees this.</p>
         </div>
+        <span style={{ fontSize: 11, color: 'var(--fg-4)' }}>{nodes.length} portrait{nodes.length !== 1 ? 's' : ''} / {edges.length} thread{edges.length !== 1 ? 's' : ''}</span>
       </div>
+      <TheoryBoard theories={theories} publicNpcs={publicNpcs} publicParty={publicParty} customChars={customChars} player={player} onAddNode={onAddNode} onUpdateNode={onUpdateNode} onRemoveNode={onRemoveNode} onAddEdge={onAddEdge} onRemoveEdge={onRemoveEdge} />
     </div>
   );
 }
 
-function PlayerTheories({ theories, publicNpcs, onAddNode, onUpdateNode, onRemoveNode, onAddEdge, onRemoveEdge }) {
-  const nodes = theories?.nodes || [], edges = theories?.edges || [];
-  return (
-    <div className="player-tab-page theories-page">
-      <div className="theories-header">
-        <div><h2 style={{ fontFamily: 'var(--f-display)', fontSize: 24, margin: 0 }}>Theory Board</h2><p style={{ fontSize: 12.5, color: 'var(--fg-4)', margin: '4px 0 0' }}>Private to you -- your suspects, hunches, and conspiracy map.</p></div>
-        <span style={{ fontSize: 11, color: 'var(--fg-4)' }}>{nodes.length} node{nodes.length !== 1 ? 's' : ''} / {edges.length} connection{edges.length !== 1 ? 's' : ''}</span>
-      </div>
-      {nodes.length === 0 && edges.length === 0 && <div className="theory-empty"><p>Nothing mapped yet. Use <strong>Add node</strong> to place NPCs or theories, then <strong>Connect nodes</strong> to draw links.</p></div>}
-      <TheoryBoard theories={theories} publicNpcs={publicNpcs} onAddNode={onAddNode} onUpdateNode={onUpdateNode} onRemoveNode={onRemoveNode} onAddEdge={onAddEdge} onRemoveEdge={onRemoveEdge} />
-    </div>
-  );
-}
 // ─── MODALS / OVERLAYS ───────────────────────────────────────────────────────
 
 function NpcModal({ npc, onClose }) {
