@@ -71,8 +71,8 @@ function SiteNav() {
       </div>
       <div className="nav-spacer"></div>
       <div className="nav-actions">
-        <a href="Demo - The Tool.html" className="r-btn ghost">Sign in</a>
-        <a href="Demo - The Tool.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
+        <a href="login.html" className="r-btn ghost">Sign in</a>
+        <a href="login.html" className="r-btn gold">Open the War Room <span className="arrow">→</span></a>
       </div>
     </nav>
   );
@@ -97,7 +97,7 @@ function Hero() {
         Every name you write is linked to every other name.
       </p>
       <div className="hero-cta">
-        <a href="Demo - The Tool.html" className="r-btn gold">
+        <a href="login.html" className="r-btn gold">
           Open the War Room <span className="arrow">→</span>
         </a>
         <a href="#pillars" className="r-btn ghost">Watch · II minutes</a>
@@ -690,7 +690,7 @@ function Tiers() {
             <li className="muted">Player view portal</li>
             <li className="muted">Cloud sync</li>
           </ul>
-          <a href="Demo - The Tool.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Begin a campaign</a>
+          <a href="login.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Begin a campaign</a>
         </div>
 
         <div className="tier featured">
@@ -708,7 +708,7 @@ function Tiers() {
             <li>Random tables &amp; generators</li>
             <li className="muted">Co-DM / scribe seats</li>
           </ul>
-          <a href="Demo - The Tool.html" className="r-btn gold" style={{ justifyContent: 'center' }}>Swear the oath →</a>
+          <a href="login.html" className="r-btn gold" style={{ justifyContent: 'center' }}>Swear the oath →</a>
         </div>
 
         <div className="tier">
@@ -725,7 +725,7 @@ function Tiers() {
             <li>Priority quills (support)</li>
             <li>Export to PDF, EPUB, &amp; Foundry</li>
           </ul>
-          <a href="Demo - The Tool.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Take the throne</a>
+          <a href="login.html" className="r-btn ghost" style={{ justifyContent: 'center' }}>Take the throne</a>
         </div>
       </div>
     </section>
@@ -816,7 +816,7 @@ function LastCTA() {
       <h2>Open the war room.<br /><em>The realm is waiting.</em></h2>
       <p>One DM. One window. One realm that keeps its own counsel.</p>
       <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-        <a href="Demo - The Tool.html" className="r-btn gold">Begin a campaign <span className="arrow">→</span></a>
+        <a href="login.html" className="r-btn gold">Begin a campaign <span className="arrow">→</span></a>
         <a href="#pillars" className="r-btn ghost">Walk the rooms again</a>
       </div>
     </section>
@@ -853,7 +853,7 @@ function SiteFoot() {
           <a href="#tiers">Tiers</a>
           <a href="#attest">Letters</a>
           <a href="#faq">FAQ</a>
-          <a href="Demo - The Tool.html">Live demo</a>
+          <a href="demo.html">Live demo</a>
         </div>
         <div>
           <h5>The Keep</h5>
