@@ -310,38 +310,16 @@
         if (!parsed.timeline)   parsed.timeline   = [];
         if (!parsed.codex)      parsed.codex      = [];
         if (!parsed.codexFolders) parsed.codexFolders = [...DEFAULT_CODEX_FOLDERS];
-        if (!parsed.quests)     parsed.quests     = window.QUESTS    ? window.QUESTS.map(q => ({ ...q }))    : [];
-        if (!parsed.religions)  parsed.religions  = window.RELIGIONS ? window.RELIGIONS.map(r => ({ ...r })) : [];
-        if (!parsed.relics)     parsed.relics     = window.RELICS    ? window.RELICS.map(r => ({ ...r }))    : [];
-        if (!parsed.lore)       parsed.lore       = window.LORE      ? window.LORE.map(l => ({ ...l }))      : [];
-        if (!parsed.relationships) parsed.relationships = window.RELATIONSHIPS
-          ? { nodes: window.RELATIONSHIPS.nodes.map(n => ({ ...n })), edges: window.RELATIONSHIPS.edges.map(e => ({ ...e })) }
-          : { nodes: [], edges: [] };
+        if (!parsed.quests)         parsed.quests         = [];
+        if (!parsed.religions)      parsed.religions      = [];
+        if (!parsed.relics)         parsed.relics         = [];
+        if (!parsed.lore)           parsed.lore           = [];
+        if (!parsed.relationships)  parsed.relationships  = { nodes: [], edges: [] };
         if (!parsed.encounters) parsed.encounters = [];
         if (!parsed.calendar)   parsed.calendar   = [];
         if (!parsed.handouts)   parsed.handouts   = [];
         if (!parsed.tables)     parsed.tables     = [];
-        if (window.HANDOUTS) {
-          const have = new Set(parsed.handouts.map(h => h.id));
-          window.HANDOUTS.forEach(h => { if (!have.has(h.id)) parsed.handouts.push({ ...h }); });
-        }
-        if (window.TABLES) {
-          const have = new Set(parsed.tables.map(t => t.id));
-          window.TABLES.forEach(t => { if (!have.has(t.id)) parsed.tables.push({ ...t, entries: [...(t.entries || [])], lastRoll: null }); });
-        }
-        if (window.RELICS) {
-          const have = new Set(parsed.relics.map(r => r.id));
-          window.RELICS.forEach(r => { if (!have.has(r.id)) parsed.relics.push({ category: r.category || 'relic', type: r.type || r.kind || 'relic', image: r.image || '', ...r }); });
-        }
-        if (window.CALENDAR) {
-          const have = new Set(parsed.calendar.map(c => c.id));
-          window.CALENDAR.forEach(c => { if (!have.has(c.id)) parsed.calendar.push({ ...c }); });
-        }
         if (!parsed.inspiration) parsed.inspiration = [];
-        if (window.INSPO) {
-          const have = new Set(parsed.inspiration.map(i => i.id));
-          window.INSPO.forEach(i => { if (!have.has(i.id)) parsed.inspiration.push({ ...i }); });
-        }
         if ((!parsed.codex || parsed.codex.length === 0) && ((parsed.lore || []).length || (parsed.religions || []).length || (parsed.relics || []).length)) {
           parsed.codex = seedCodexFromWorldData(parsed);
         }
@@ -364,8 +342,6 @@
       }
     } catch (_) {}
 
-    // New campaign — start empty (use demo if data.js is loaded and it's the first ever)
-    if (window.CAMPAIGN && loadIndex().length === 1) return demoState();
     return emptyState();
   }
 
