@@ -1958,18 +1958,27 @@ function Stub({ label, onNav }) {
 
 // ── Campaigns manager ────────────────────────────────────────────────
 function CampaignsManager({ onNav }) {
-  const [campaigns, setCampaigns] = React.useState(() => window.Store.campaigns.list());
-  const [creating, setCreating]   = React.useState(false);
-  const [newName, setNewName]     = React.useState('');
-  const [editId, setEditId]       = React.useState(null);
-  const [editName, setEditName]   = React.useState('');
-  const activeCampaignId          = window.Store.campaigns.active();
-  const shareLink                 = window.Store.getShareLink();
-  const activeState               = window.Store.get();
-  const demoUsers                 = activeState.campaign?.demoUsers || [];
-  const playerRoster              = activeState.campaign?.playerRoster || [];
+  const [campaigns, setCampaigns]         = React.useState(() => window.Store.campaigns.list());
+  const [creating, setCreating]           = React.useState(false);
+  const [newName, setNewName]             = React.useState('');
+  const [editId, setEditId]               = React.useState(null);
+  const [editName, setEditName]           = React.useState('');
+  const [newPlayerName, setNewPlayerName] = React.useState('');
+  const [newPlayerChar, setNewPlayerChar] = React.useState('');
+  const [showDemo, setShowDemo]           = React.useState(false);
+
+  const activeCampaignId = window.Store.campaigns.active();
+  const [players, setPlayers] = React.useState(() => {
+    const s = window.Store.get();
+    return (s.campaign?.playerRoster || []).filter(p => !p._isDemo);
+  });
+
+  const shareLink  = window.Store.getShareLink();
+  const playerLink = (id) => `${shareLink}&player=${encodeURIComponent(id)}`;
 
   const refresh = () => setCampaigns(window.Store.campaigns.list());
+
+  const iStyle = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.16 0.012 60 / 0.55)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '8px 10px', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
 
   const create = (e) => {
     e.preventDefault();
@@ -2000,8 +2009,21 @@ function CampaignsManager({ onNav }) {
     if (id === activeCampaignId) onNav('warroom');
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareLink).then(() => window.toast && window.toast('Player link copied!', { icon: '🔗' }));
+  const addPlayer = (e) => {
+    e.preventDefault();
+    if (!newPlayerName.trim()) return;
+    const id = window.Store.addPlayer(newPlayerName, newPlayerChar);
+    setPlayers(prev => [...prev, { id, name: newPlayerName.trim(), character: newPlayerChar.trim() }]);
+    setNewPlayerName(''); setNewPlayerChar('');
+  };
+
+  const removePlayer = (id) => {
+    window.Store.removePlayer(id);
+    setPlayers(prev => prev.filter(p => p.id !== id));
+  };
+
+  const copyLink = (link) => {
+    navigator.clipboard.writeText(link).then(() => window.toast && window.toast('Link copied!', { icon: '🔗' }));
   };
 
   const installDemo = () => {
@@ -2012,9 +2034,8 @@ function CampaignsManager({ onNav }) {
     onNav('warroom');
   };
 
-  const playerLink = (playerId) => `${window.Store.getShareLink()}&player=${encodeURIComponent(playerId)}`;
-
-  const iStyle = { width: '100%', boxSizing: 'border-box', background: 'oklch(0.16 0.012 60 / 0.55)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', color: 'var(--fg)', padding: '8px 10px', fontSize: 13, outline: 'none', fontFamily: 'inherit' };
+  const activeCampaign = campaigns.find(c => c.id === activeCampaignId);
+  const otherCampaigns = campaigns.filter(c => c.id !== activeCampaignId);
 
   return (
     <div className="page fade-up">
@@ -2040,53 +2061,119 @@ function CampaignsManager({ onNav }) {
         </form>
       )}
 
-      <div className="card cornered" style={{ marginBottom: 16, borderColor: 'color-mix(in oklch, var(--brass) 48%, var(--hairline-2))' }}>
-        <div className="head">
-          <Icon.PlayerView />
-          <span className="title">Three-user demo table</span>
-          <div className="spacer"></div>
-          <span className="smallcaps">1 DM · 2 players</span>
-        </div>
-        <div className="body">
-          <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: 14, alignItems: 'stretch' }}>
-            <div>
-              <div style={{ fontFamily: 'var(--f-display)', fontSize: 22, color: 'var(--fg)', lineHeight: 1.1 }}>
-                The Black Bell of Vaelthorne
-              </div>
-              <div className="quote" style={{ marginTop: 8, fontSize: 13 }}>
-                A dark-grim campaign demo with Ardenna as DM, Samira as Marda Stonebrew, and Theo as Aelric Vorn. The DM sees the full conspiracy; players see only published quests, faces, locations, handouts, and revealed truths.
-              </div>
-              <div className="row gap-sm wrap" style={{ marginTop: 12 }}>
-                <button className="tbtn brass" onClick={installDemo}>Install / reset demo</button>
-                {playerRoster.map(p => (
-                  <button key={p.id} className="tbtn" onClick={() => window.open(playerLink(p.id), '_blank', 'noopener')}>
-                    Open {p.name.split(' ')[0]}'s view
-                  </button>
-                ))}
-              </div>
+      {/* Active campaign — hero card */}
+      {activeCampaign && (
+        <div className="card cornered" style={{ marginBottom: 20, borderLeft: '3px solid var(--brass)' }}>
+          <div className="head">
+            <Icon.WarRoom />
+            {editId === activeCampaignId ? (
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveRename(activeCampaignId); if (e.key === 'Escape') setEditId(null); }}
+                style={{ ...iStyle, flex: 1, fontSize: 13, padding: '4px 8px' }}
+                autoFocus
+              />
+            ) : (
+              <span className="title" style={{ color: 'var(--brass)', fontSize: 16 }}>{activeCampaign.name}</span>
+            )}
+            <div className="spacer" />
+            <span className="pill brass" style={{ fontSize: 9 }}>active</span>
+          </div>
+          <div className="body" style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+              {editId === activeCampaignId ? (
+                <>
+                  <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => saveRename(activeCampaignId)}>Save</button>
+                  <button className="tbtn" style={{ fontSize: 11 }} onClick={() => setEditId(null)}>Cancel</button>
+                </>
+              ) : (
+                <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditId(activeCampaignId); setEditName(activeCampaign.name); }}>Rename</button>
+              )}
+              {campaigns.length > 1 && (
+                <button className="tbtn" style={{ fontSize: 11, color: 'var(--fg-3)' }} onClick={() => del(activeCampaignId)}>Delete</button>
+              )}
+              <span style={{ fontSize: 10.5, color: 'var(--fg-4)', marginLeft: 'auto' }}>
+                {activeCampaign.updatedAt ? 'Saved ' + new Date(activeCampaign.updatedAt).toLocaleDateString() : 'New'}
+              </span>
             </div>
-            <div className="grid" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
-              {(demoUsers.length ? demoUsers : [
-                { id: 'ardenna', name: 'Ardenna Vale', role: 'DM', email: 'ardenna.dm@war-room.demo' },
-                { id: 'samira', name: 'Samira Vale', role: 'Player', character: 'Marda Stonebrew' },
-                { id: 'theo', name: 'Theo Marr', role: 'Player', character: 'Aelric Vorn' },
-              ]).map(u => (
-                <div key={u.id} style={{ padding: 10, border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)' }}>
-                  <div className="smallcaps" style={{ fontSize: 9.5, color: u.role === 'DM' ? 'var(--brass)' : 'var(--fg-3)' }}>{u.role}</div>
-                  <div style={{ fontFamily: 'var(--f-display)', fontSize: 16, lineHeight: 1.1 }}>{u.name}</div>
-                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{u.character || u.email}</div>
+
+            {/* Players section */}
+            <div style={{ borderTop: '1px solid var(--hairline-2)', paddingTop: 14, marginTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Icon.PlayerView />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-2)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Players</span>
+                <span style={{ fontSize: 11, color: 'var(--fg-4)', marginLeft: 4 }}>
+                  {players.length ? `${players.length} player${players.length !== 1 ? 's' : ''}` : 'none yet'}
+                </span>
+              </div>
+
+              {players.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                  {players.map(p => (
+                    <div key={p.id} style={{ padding: '10px 12px', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)', display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                          <span style={{ fontFamily: 'var(--f-display)', fontSize: 15 }}>{p.name}</span>
+                          {p.character && <span style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>{p.character}</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+                          <input readOnly value={playerLink(p.id)} style={{ ...iStyle, flex: 1, fontSize: 10.5, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)', padding: '4px 8px' }} onClick={e => e.target.select()} />
+                          <button className="tbtn brass" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => copyLink(playerLink(p.id))}>Copy</button>
+                          <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => window.open(playerLink(p.id), '_blank', 'noopener')}>Preview</button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removePlayer(p.id)}
+                        title="Remove player"
+                        style={{ background: 'none', border: 'none', color: 'var(--fg-4)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px', alignSelf: 'flex-start' }}
+                      >×</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <form onSubmit={addPlayer} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 140px' }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginBottom: 4 }}>Player name</div>
+                  <input
+                    value={newPlayerName}
+                    onChange={e => setNewPlayerName(e.target.value)}
+                    placeholder="e.g. Kaiser"
+                    style={{ ...iStyle, fontSize: 12 }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 140px' }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginBottom: 4 }}>Character name <span style={{ opacity: 0.5 }}>(optional)</span></div>
+                  <input
+                    value={newPlayerChar}
+                    onChange={e => setNewPlayerChar(e.target.value)}
+                    placeholder="e.g. Aldric the Grey"
+                    style={{ ...iStyle, fontSize: 12 }}
+                  />
+                </div>
+                <button className="tbtn brass" type="submit" style={{ flexShrink: 0, alignSelf: 'flex-end' }}><Icon.Plus /> Add player</button>
+              </form>
+            </div>
+
+            {/* Base share link */}
+            <div style={{ borderTop: '1px solid var(--hairline-2)', paddingTop: 14, marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--fg-4)', marginBottom: 6 }}>Base campaign link (no player identity)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input readOnly value={shareLink} style={{ ...iStyle, flex: 1, fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)' }} onClick={e => e.target.select()} />
+                <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => copyLink(shareLink)}>Copy</button>
+                <button className="tbtn" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => window.open(shareLink, '_blank', 'noopener')}>Preview</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
-        {campaigns.map(c => {
-          const isActive = c.id === activeCampaignId;
-          return (
-            <div key={c.id} className="card cornered" style={{ borderLeft: isActive ? '3px solid var(--brass)' : '3px solid transparent' }}>
+      {/* Other campaigns — small grid */}
+      {otherCampaigns.length > 0 && (
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
+          {otherCampaigns.map(c => (
+            <div key={c.id} className="card cornered">
               <div className="head">
                 <Icon.WarRoom />
                 {editId === c.id ? (
@@ -2098,13 +2185,12 @@ function CampaignsManager({ onNav }) {
                     autoFocus
                   />
                 ) : (
-                  <span className="title" style={{ color: isActive ? 'var(--brass)' : 'var(--fg)' }}>{c.name}</span>
+                  <span className="title">{c.name}</span>
                 )}
                 <div className="spacer" />
-                {isActive && <span className="pill brass" style={{ fontSize: 9 }}>active</span>}
               </div>
               <div className="body" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 14px' }}>
-                {!isActive && <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => switchTo(c.id)}>Switch to this</button>}
+                <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => switchTo(c.id)}>Switch to this</button>
                 {editId === c.id ? (
                   <>
                     <button className="tbtn brass" style={{ fontSize: 11 }} onClick={() => saveRename(c.id)}>Save</button>
@@ -2113,44 +2199,59 @@ function CampaignsManager({ onNav }) {
                 ) : (
                   <button className="tbtn" style={{ fontSize: 11 }} onClick={() => { setEditId(c.id); setEditName(c.name); }}>Rename</button>
                 )}
-                {campaigns.length > 1 && (
-                  <button className="tbtn" style={{ fontSize: 11, color: 'var(--fg-3)' }} onClick={() => del(c.id)}>Delete</button>
-                )}
+                <button className="tbtn" style={{ fontSize: 11, color: 'var(--fg-3)' }} onClick={() => del(c.id)}>Delete</button>
                 <div style={{ fontSize: 10.5, color: 'var(--fg-4)', alignSelf: 'center', marginLeft: 'auto' }}>
                   {c.updatedAt ? 'Saved ' + new Date(c.updatedAt).toLocaleDateString() : 'New'}
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Player share link */}
-      <div className="card cornered" style={{ marginTop: 24 }}>
-        <div className="head"><Icon.PlayerView /><span className="title">Player link</span><div className="spacer" /><span className="muted" style={{ fontSize: 11 }}>active campaign</span></div>
-        <div className="body">
-          <div style={{ fontSize: 12.5, color: 'var(--fg-3)', marginBottom: 10 }}>
-            Share this link with your players. They open it in a browser — no account needed. They see only what you've marked as published.
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <input readOnly value={shareLink} style={{ ...iStyle, flex: 1, fontSize: 11.5, fontFamily: 'var(--f-mono)', color: 'var(--fg-2)' }} onClick={e => e.target.select()} />
-            <button className="tbtn brass" onClick={copyLink}>Copy</button>
-            <button className="tbtn" onClick={() => window.open(shareLink, '_blank', 'noopener')}>Preview</button>
-          </div>
-          {playerRoster.length > 0 && (
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 12 }}>
-              {playerRoster.map(p => (
-                <div key={p.id} style={{ padding: 10, border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)' }}>
-                  <div className="smallcaps" style={{ fontSize: 9.5, marginBottom: 4 }}>{p.name}</div>
-                  <input readOnly value={playerLink(p.id)} style={{ ...iStyle, fontSize: 10.5, fontFamily: 'var(--f-mono)', color: 'var(--fg-3)' }} onClick={e => e.target.select()} />
-                  <button className="tbtn" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => window.open(playerLink(p.id), '_blank', 'noopener')}>
-                    Open {p.character}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          ))}
         </div>
+      )}
+
+      {/* Demo table — collapsed by default */}
+      <div className="card cornered" style={{ opacity: 0.75 }}>
+        <div
+          className="head"
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+          onClick={() => setShowDemo(v => !v)}
+        >
+          <Icon.PlayerView />
+          <span className="title" style={{ color: 'var(--fg-3)' }}>Demo table — The Black Bell of Vaelthorne</span>
+          <div className="spacer" />
+          <span className="muted" style={{ fontSize: 11 }}>1 DM · 2 players</span>
+          <span style={{ marginLeft: 10, color: 'var(--fg-4)', fontSize: 12 }}>{showDemo ? '▲' : '▼'}</span>
+        </div>
+        {showDemo && (
+          <div className="body">
+            <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: 14, alignItems: 'stretch' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--f-display)', fontSize: 20, color: 'var(--fg)', lineHeight: 1.1 }}>
+                  The Black Bell of Vaelthorne
+                </div>
+                <div className="quote" style={{ marginTop: 8, fontSize: 12.5 }}>
+                  A dark-grim campaign demo with Ardenna as DM, Samira as Marda Stonebrew, and Theo as Aelric Vorn. Install it to explore the full DM/player split.
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button className="tbtn" style={{ fontSize: 12 }} onClick={installDemo}>Install / reset demo</button>
+                </div>
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
+                {[
+                  { id: 'ardenna', name: 'Ardenna Vale', role: 'DM', email: 'ardenna.dm@war-room.demo' },
+                  { id: 'samira', name: 'Samira Vale', role: 'Player', character: 'Marda Stonebrew' },
+                  { id: 'theo', name: 'Theo Marr', role: 'Player', character: 'Aelric Vorn' },
+                ].map(u => (
+                  <div key={u.id} style={{ padding: 10, border: '1px solid var(--hairline-2)', borderRadius: 'var(--r)', background: 'var(--field-bg)' }}>
+                    <div className="smallcaps" style={{ fontSize: 9.5, color: u.role === 'DM' ? 'var(--brass)' : 'var(--fg-3)' }}>{u.role}</div>
+                    <div style={{ fontFamily: 'var(--f-display)', fontSize: 15, lineHeight: 1.1 }}>{u.name}</div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{u.character || u.email}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

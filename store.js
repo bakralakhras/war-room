@@ -828,6 +828,22 @@
       const base = window.location.href.replace(/\/[^/]*(\?.*)?$/, '/');
       return `${base}player.html?campaign=${activeCampaignId}`;
     },
+
+    addPlayer(name, character) {
+      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const id = slug || ('player-' + Date.now().toString(36));
+      const roster = (state.campaign?.playerRoster || []).filter(p => p.id !== id);
+      roster.push({ id, name: name.trim(), character: (character || '').trim() });
+      state = { ...state, campaign: { ...state.campaign, playerRoster: roster } };
+      saveState(); cachePlayerSnapshot(); notify(); scheduleBroadcast();
+      return id;
+    },
+
+    removePlayer(id) {
+      const roster = (state.campaign?.playerRoster || []).filter(p => p.id !== id);
+      state = { ...state, campaign: { ...state.campaign, playerRoster: roster } };
+      saveState(); cachePlayerSnapshot(); notify(); scheduleBroadcast();
+    },
   };
 
   // Cross-tab sync: reload if another tab saved this campaign
